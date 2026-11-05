@@ -5,6 +5,7 @@ import { ReactFlowProvider, useReactFlow } from "@xyflow/react";
 
 import { Dock } from "@/components/canvas/dock";
 import { FlowCanvas } from "@/components/canvas/flow-canvas";
+import { NodeChat } from "@/components/canvas/node-chat";
 import { Toolbar } from "@/components/canvas/toolbar";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { staticExport } from "@/lib/client-generate";
@@ -134,6 +135,7 @@ function Shell() {
           <div className="absolute inset-0">
             <FlowCanvas />
           </div>
+          <NodeChat />
         </div>
         <div className="hidden md:contents">
           <Dock open={dock} mobile={false} onClose={() => setDock(false)} />
@@ -144,7 +146,7 @@ function Shell() {
         <span>
           {nodes} 个节点 · {edges} 条连线
         </span>
-        <span className="hidden sm:inline">双击空白添加节点</span>
+        <span className="hidden sm:inline">单击节点对话，连到页面即生成</span>
         <span className="ml-auto">{saveLabel}</span>
         <span className="hidden max-w-[40%] truncate md:inline">{modelLabel}</span>
       </footer>

@@ -1,6 +1,7 @@
 import type { GenerationContext } from "@/lib/types";
 import { themeCss } from "@/lib/theme";
 import { utilityCss } from "@/lib/utilities";
+import { motionCss } from "@/lib/motion";
 import { buildModel, type PageModel } from "@/lib/compose-model";
 
 type El = {
@@ -486,7 +487,7 @@ ${jsxChild(tree, 3)}
 
 export function renderPage(context: GenerationContext) {
   const model = buildModel(context);
-  const css = `${themeCss(model.theme)}\n${utilityCss()}`;
+  const css = `${themeCss(model.theme)}\n${utilityCss()}\n${motionCss(model.motion)}`;
   const tree = pageTree(model);
   return {
     html: documentHtml(model, tree, css),

@@ -5,12 +5,11 @@ import { presetById } from "@/lib/theme";
 import type {
   AppNode,
   BriefData,
-  CodeData,
-  ComponentData,
-  GenerateData,
+  DataNodeData,
+  FrameworkData,
   GraphEdge,
-  LayoutData,
-  PreviewData,
+  MotionData,
+  PageData,
   StyleData,
 } from "@/lib/types";
 
@@ -18,19 +17,19 @@ export const TEMPLATES = [
   {
     id: "landing",
     name: "落地页",
-    description: "产品介绍、特性、一句评价",
+    description: "描述、风格、框架和动效汇进页面",
     projectName: "页织落地页",
   },
   {
     id: "pricing",
     name: "SaaS 定价",
-    description: "三档价格和常见问题",
+    description: "价格数据连进定价页",
     projectName: "北窗定价",
   },
   {
     id: "dashboard",
     name: "调度台",
-    description: "侧栏、指标和运单表",
+    description: "指标和运单数据连进调度页",
     projectName: "岸线调度台",
   },
 ] as const;
@@ -38,7 +37,7 @@ export const TEMPLATES = [
 export type TemplateId = (typeof TEMPLATES)[number]["id"];
 
 function edge(source: string, target: string): GraphEdge {
-  return { id: `${source}>${target}`, source, target, type: "smoothstep" };
+  return { id: `${source}>${target}`, source, target, type: "flow" };
 }
 
 function place(
@@ -59,55 +58,36 @@ function place(
   } as AppNode;
 }
 
-const idleGenerate = (format: GenerateData["format"] = "html"): GenerateData => ({
-  format,
-  model: "",
-  status: "idle",
-  source: "",
-  warning: "",
-  code: "",
-  themeCss: "",
-});
-
-const emptyCode = (): CodeData => ({
-  code: "",
-  format: "html",
-  themeCss: "",
-  edited: false,
-});
-
-const emptyPreview = (): PreviewData => ({
-  code: "",
-  format: "html",
-  themeCss: "",
-  device: "desktop",
-});
+function pageData(): PageData {
+  return {
+    format: "html",
+    model: "",
+    status: "idle",
+    source: "",
+    warning: "",
+    code: "",
+    themeCss: "",
+    device: "desktop",
+    edited: false,
+  };
+}
 
 function withOutput(nodes: AppNode[], edges: GraphEdge[]) {
-  const generate = nodes.find((node) => node.type === "generate");
-  if (!generate) return nodes;
-  const page = renderPage(collectContext(generate.id, nodes, edges));
   return nodes.map((node) => {
-    if (node.type === "generate") {
-      return {
-        ...node,
-        data: {
-          ...node.data,
-          code: page.html,
-          themeCss: page.themeCss,
-          status: "done" as const,
-          source: "local" as const,
-          warning: "",
-        },
-      };
-    }
-    if (node.type === "code") {
-      return { ...node, data: { ...node.data, code: page.html, themeCss: page.themeCss } };
-    }
-    if (node.type === "preview") {
-      return { ...node, data: { ...node.data, code: page.html, themeCss: page.themeCss } };
-    }
-    return node;
+    if (node.type !== "page") return node;
+    const page = renderPage(collectContext(node.id, nodes, edges));
+    return {
+      ...node,
+      data: {
+        ...node.data,
+        code: node.data.format === "react" ? page.react : page.html,
+        themeCss: page.themeCss,
+        status: "done" as const,
+        source: "local" as const,
+        warning: "",
+        edited: false,
+      },
+    };
   });
 }
 
@@ -118,7 +98,7 @@ function landing(): { nodes: AppNode[]; edges: GraphEdge[] } {
     audience: "独立开发者",
     headline: "把页面从一句需求里织出来",
     prompt:
-      "页织是一块无限画布。把简报、风格和布局接成工作流，生成可以预览、可以改的前端页面。不从空白文件开始。",
+      "页织是一块无限画布。把页面描述、风格、框架、动效和数据连到页面节点，生成可以预览的前端。不从空白文件开始。",
   };
   const style: StyleData = {
     preset: "ink",
@@ -130,39 +110,48 @@ function landing(): { nodes: AppNode[]; edges: GraphEdge[] } {
     radius: "soft",
     notes: "语气干脆，少口号，像工具而不是发布会。",
   };
-  const layout: LayoutData = {
+  const framework: FrameworkData = {
+    stack: "html",
     structure: "landing",
     sections: ["nav", "hero", "logos", "features", "quote", "cta", "footer"],
+    components: [
+      "@features 三件事",
+      "无限画布 — 节点自由相连，上游汇进页面",
+      "对话改稿 — 点开节点，用一句话改文案和参数",
+      "当场能看 — 页面节点里就是预览",
+      "",
+      "@quote 评价",
+      "终于不用先开一个空的 index.html — 独立开发者",
+    ].join("\n"),
     notes: "",
   };
-  const features: ComponentData = {
-    kind: "features",
-    name: "三件事",
-    spec: "无限画布 — 双击就加节点，把上下文拖到生成器上\n风格跟着走 — 颜色、密度和字体从风格节点流进页面\n当场能改 — 预览和代码在同一张画布上，改完就能导出",
+  const motion: MotionData = {
+    level: "subtle",
+    hover: true,
+    scroll: true,
+    enter: true,
+    notes: "悬停轻轻抬起，区块入场即可，不要弹跳。",
   };
-  const quote: ComponentData = {
-    kind: "quote",
-    name: "评价",
-    spec: "终于不用先开一个空的 index.html — 独立开发者",
+  const logos: DataNodeData = {
+    name: "客户标识",
+    format: "list",
+    sample: "青岫\n慢递\n拾光\n南风\n木白",
+    notes: "",
   };
   const nodes: AppNode[] = [
-    place("brief", "landing-brief", 0, 0, brief),
-    place("style", "landing-style", 0, 430, style),
-    place("layout", "landing-layout", 360, 0, layout),
-    place("component", "landing-features", 360, 390, features),
-    place("component", "landing-quote", 360, 720, quote),
-    place("generate", "landing-generate", 740, 180, idleGenerate(), true),
-    place("code", "landing-code", 1100, 0, emptyCode()),
-    place("preview", "landing-preview", 1100, 360, emptyPreview()),
+    place("brief", "landing-brief", 0, 20, brief),
+    place("style", "landing-style", 0, 280, style),
+    place("framework", "landing-framework", 360, 20, framework),
+    place("motion", "landing-motion", 360, 300, motion),
+    place("data", "landing-logos", 360, 520, logos),
+    place("page", "landing-page", 760, 140, pageData()),
   ];
   const edges = [
-    edge("landing-brief", "landing-generate"),
-    edge("landing-style", "landing-generate"),
-    edge("landing-layout", "landing-generate"),
-    edge("landing-features", "landing-generate"),
-    edge("landing-quote", "landing-generate"),
-    edge("landing-generate", "landing-code"),
-    edge("landing-code", "landing-preview"),
+    edge("landing-brief", "landing-page"),
+    edge("landing-style", "landing-page"),
+    edge("landing-framework", "landing-page"),
+    edge("landing-motion", "landing-page"),
+    edge("landing-logos", "landing-page"),
   ];
   return { nodes: withOutput(nodes, edges), edges };
 }
@@ -186,43 +175,49 @@ function pricing(): { nodes: AppNode[]; edges: GraphEdge[] } {
     radius: "soft",
     notes: "纸色背景，标题用衬线，像一封写完的信。",
   };
-  const layout: LayoutData = {
+  const framework: FrameworkData = {
+    stack: "html",
     structure: "pricing",
     sections: ["nav", "hero", "pricing", "faq", "cta", "footer"],
+    components: [
+      "@faq 问答",
+      "可以按月停吗 — 可以。停用后数据保留 30 天。",
+      "有没有席位费 — 工作室档包含 5 个席位，之后每个 ¥12。",
+      "支持自建邮箱吗 — 支持 IMAP 和常见企业邮箱。",
+    ].join("\n"),
     notes: "",
   };
-  const tiers: ComponentData = {
-    kind: "pricing",
-    name: "三档",
-    spec: [
+  const motion: MotionData = {
+    level: "subtle",
+    hover: true,
+    scroll: true,
+    enter: false,
+    notes: "价格卡悬停即可。",
+  };
+  const tiers: DataNodeData = {
+    name: "价格档",
+    format: "table",
+    sample: [
       "观察 | ¥0 | 一个人先试 | 1 个收件箱, 7 天历史, 社区支持",
       "工作室 | ¥49/月 | 正在长大的团队 | 无限收件箱, 共享备注, 邮件与页面插件",
       "柜面 | ¥199/月 | 需要权限的团队 | SSO, 审计日志, 专属值班",
     ].join("\n"),
-  };
-  const faq: ComponentData = {
-    kind: "faq",
-    name: "问答",
-    spec: "可以按月停吗 — 可以。停用后数据保留 30 天。\n有没有席位费 — 工作室档包含 5 个席位，之后每个 ¥12。\n支持自建邮箱吗 — 支持 IMAP 和常见企业邮箱。",
+    notes: "",
   };
   const nodes: AppNode[] = [
-    place("brief", "pricing-brief", 0, 0, brief),
-    place("style", "pricing-style", 0, 430, style),
-    place("layout", "pricing-layout", 360, 0, layout),
-    place("component", "pricing-tiers", 360, 390, tiers),
-    place("component", "pricing-faq", 360, 720, faq),
-    place("generate", "pricing-generate", 740, 180, idleGenerate(), true),
-    place("code", "pricing-code", 1100, 0, emptyCode()),
-    place("preview", "pricing-preview", 1100, 360, emptyPreview()),
+    place("brief", "pricing-brief", 0, 20, brief),
+    place("style", "pricing-style", 0, 280, style),
+    place("framework", "pricing-framework", 360, 20, framework),
+    place("data", "pricing-tiers", 360, 340, tiers),
+    place("motion", "pricing-motion", 360, 620, motion),
+    place("page", "pricing-page", 760, 160, pageData()),
   ];
   const edges = [
-    edge("pricing-brief", "pricing-generate"),
-    edge("pricing-style", "pricing-generate"),
-    edge("pricing-layout", "pricing-generate"),
-    edge("pricing-tiers", "pricing-generate"),
-    edge("pricing-faq", "pricing-generate"),
-    edge("pricing-generate", "pricing-code"),
-    edge("pricing-code", "pricing-preview"),
+    edge("pricing-brief", "pricing-page"),
+    edge("pricing-style", "pricing-page"),
+    edge("pricing-framework", "pricing-page"),
+    edge("pricing-tiers", "pricing-page"),
+    edge("pricing-motion", "pricing-page"),
   ];
   return { nodes: withOutput(nodes, edges), edges };
 }
@@ -245,46 +240,59 @@ function dashboard(): { nodes: AppNode[]; edges: GraphEdge[] } {
     radius: "sharp",
     notes: "密一点，数字对齐，状态用短词。",
   };
-  const layout: LayoutData = {
+  const framework: FrameworkData = {
+    stack: "html",
     structure: "dashboard",
     sections: ["sidebar", "topbar", "stats", "table", "activity"],
+    components: ["@sidebar 侧栏", "总览\n运单\n车辆\n延误\n班次"].join("\n"),
     notes: "",
   };
-  const stats: ComponentData = {
-    kind: "stats",
-    name: "指标",
-    spec: "128 | 在途运单 | 较昨日 +6\n7 | 延误 | 需要值班确认\n36 | 车辆在线 | 4 辆充电中\n18 分 | 平均靠台 | 目标 20 分",
+  const motion: MotionData = {
+    level: "none",
+    hover: false,
+    scroll: false,
+    enter: false,
+    notes: "值班台保持静止。",
   };
-  const table: ComponentData = {
-    kind: "table",
+  const stats: DataNodeData = {
+    name: "今日指标",
+    format: "stats",
+    sample: [
+      "128 | 在途运单 | 较昨日 +6",
+      "7 | 延误 | 需要值班确认",
+      "36 | 车辆在线 | 4 辆充电中",
+      "18 分 | 平均靠台 | 目标 20 分",
+    ].join("\n"),
+    notes: "",
+  };
+  const table: DataNodeData = {
     name: "运单",
-    spec: "运单 | 去向 | 状态 | 车辆\nSH-2041 | 外高桥 | 靠台中 | 沪A·3921\nSH-2048 | 洋山 | 延误 40 分 | 沪B·1108\nNB-118 | 宁波港 | 在途 | 浙B·6620\nSZ-090 | 苏州园区 | 已签 | 苏E·4412",
-  };
-  const sidebar: ComponentData = {
-    kind: "sidebar",
-    name: "侧栏",
-    spec: "总览\n运单\n车辆\n延误\n班次",
+    format: "table",
+    sample: [
+      "运单 | 去向 | 状态 | 车辆",
+      "SH-2041 | 外高桥 | 靠台中 | 沪A·3921",
+      "SH-2048 | 洋山 | 延误 40 分 | 沪B·1108",
+      "NB-118 | 宁波港 | 在途 | 浙B·6620",
+      "SZ-090 | 苏州园区 | 已签 | 苏E·4412",
+    ].join("\n"),
+    notes: "",
   };
   const nodes: AppNode[] = [
-    place("brief", "dash-brief", 0, 0, brief),
-    place("style", "dash-style", 0, 430, style),
-    place("layout", "dash-layout", 360, 0, layout),
-    place("component", "dash-stats", 360, 390, stats),
-    place("component", "dash-table", 360, 700, table),
-    place("component", "dash-side", 740, 500, sidebar),
-    place("generate", "dash-generate", 740, 80, idleGenerate(), true),
-    place("code", "dash-code", 1100, 0, emptyCode()),
-    place("preview", "dash-preview", 1100, 360, emptyPreview()),
+    place("brief", "dash-brief", 0, 20, brief),
+    place("style", "dash-style", 0, 280, style),
+    place("framework", "dash-framework", 360, 20, framework),
+    place("data", "dash-stats", 360, 300, stats),
+    place("data", "dash-table", 720, 300, table),
+    place("motion", "dash-motion", 720, 560, motion),
+    place("page", "dash-page", 1100, 80, pageData()),
   ];
   const edges = [
-    edge("dash-brief", "dash-generate"),
-    edge("dash-style", "dash-generate"),
-    edge("dash-layout", "dash-generate"),
-    edge("dash-stats", "dash-generate"),
-    edge("dash-table", "dash-generate"),
-    edge("dash-side", "dash-generate"),
-    edge("dash-generate", "dash-code"),
-    edge("dash-code", "dash-preview"),
+    edge("dash-brief", "dash-page"),
+    edge("dash-style", "dash-page"),
+    edge("dash-framework", "dash-page"),
+    edge("dash-stats", "dash-page"),
+    edge("dash-table", "dash-page"),
+    edge("dash-motion", "dash-page"),
   ];
   return { nodes: withOutput(nodes, edges), edges };
 }
