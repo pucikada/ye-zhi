@@ -1,11 +1,10 @@
 export type NodeKind =
   | "brief"
   | "style"
-  | "layout"
-  | "component"
-  | "generate"
-  | "preview"
-  | "code";
+  | "framework"
+  | "motion"
+  | "data"
+  | "page";
 
 export type Format = "html" | "react";
 
@@ -29,6 +28,12 @@ export type StructureId =
   | "auth"
   | "custom";
 
+export type MotionLevel = "none" | "subtle" | "lively";
+export type DataFormat = "table" | "list" | "stats" | "json";
+export type Device = "desktop" | "tablet" | "mobile";
+export type RunStatus = "idle" | "running" | "done" | "error";
+export type RunSource = "" | "local" | "model";
+
 export type BriefData = {
   title: string;
   audience: string;
@@ -47,40 +52,45 @@ export type StyleData = {
   notes: string;
 };
 
-export type LayoutData = {
+export type FrameworkData = {
+  stack: Format;
   structure: StructureId;
   sections: string[];
+  components: string;
   notes: string;
 };
 
-export type ComponentData = {
-  kind: string;
-  name: string;
-  spec: string;
+export type MotionData = {
+  level: MotionLevel;
+  hover: boolean;
+  scroll: boolean;
+  enter: boolean;
+  notes: string;
 };
 
-export type GenerateData = {
+export type DataNodeData = {
+  name: string;
+  format: DataFormat;
+  sample: string;
+  notes: string;
+};
+
+export type PageData = {
   format: Format;
   model: string;
-  status: "idle" | "running" | "done" | "error";
-  source: "" | "local" | "model";
+  status: RunStatus;
+  source: RunSource;
   warning: string;
   code: string;
   themeCss: string;
-};
-
-export type PreviewData = {
-  code: string;
-  format: Format;
-  themeCss: string;
-  device: "desktop" | "tablet" | "mobile";
-};
-
-export type CodeData = {
-  code: string;
-  format: Format;
-  themeCss: string;
+  device: Device;
   edited: boolean;
+};
+
+export type ComponentSpec = {
+  kind: string;
+  name: string;
+  spec: string;
 };
 
 export type XY = { x: number; y: number };
@@ -96,20 +106,27 @@ type NodeBase = {
 
 export type BriefNode = NodeBase & { type: "brief"; data: BriefData };
 export type StyleNode = NodeBase & { type: "style"; data: StyleData };
-export type LayoutNode = NodeBase & { type: "layout"; data: LayoutData };
-export type ComponentNode = NodeBase & { type: "component"; data: ComponentData };
-export type GenerateNode = NodeBase & { type: "generate"; data: GenerateData };
-export type PreviewNode = NodeBase & { type: "preview"; data: PreviewData };
-export type CodeNode = NodeBase & { type: "code"; data: CodeData };
+export type FrameworkNode = NodeBase & { type: "framework"; data: FrameworkData };
+export type MotionNode = NodeBase & { type: "motion"; data: MotionData };
+export type DataNode = NodeBase & { type: "data"; data: DataNodeData };
+export type PageNode = NodeBase & { type: "page"; data: PageData };
 
 export type AppNode =
   | BriefNode
   | StyleNode
-  | LayoutNode
-  | ComponentNode
-  | GenerateNode
-  | PreviewNode
-  | CodeNode;
+  | FrameworkNode
+  | MotionNode
+  | DataNode
+  | PageNode;
+
+export type NodeDataMap = {
+  brief: BriefData;
+  style: StyleData;
+  framework: FrameworkData;
+  motion: MotionData;
+  data: DataNodeData;
+  page: PageData;
+};
 
 export type GraphEdge = {
   id: string;
@@ -126,8 +143,19 @@ export type GraphEdge = {
 export type GenerationContext = {
   briefs: BriefData[];
   styles: StyleData[];
-  layouts: LayoutData[];
-  components: ComponentData[];
-  upstreamCode: string[];
+  frameworks: FrameworkData[];
+  motions: MotionData[];
+  datasets: DataNodeData[];
   format: Format;
+};
+
+export type ChatTurn = {
+  role: "user" | "assistant";
+  text: string;
+};
+
+export type NodeEditResult = {
+  reply: string;
+  patch: Record<string, unknown>;
+  source: "local" | "model";
 };

@@ -88,7 +88,7 @@ export function Toolbar({
   const clearCanvas = useCanvas((state) => state.clearCanvas);
   const nodeCount = useCanvas((state) => state.nodes.length);
   const canRun = useCanvas((state) =>
-    state.nodes.some((node) => node.selected && node.type === "generate"),
+    state.nodes.some((node) => node.selected && node.type === "page"),
   );
   const [help, setHelp] = useState(false);
   const [pending, setPending] = useState<
@@ -162,11 +162,11 @@ export function Toolbar({
           onClick={() => void runSelected()}
         >
           <Play />
-          <span className="hidden md:inline">运行选中</span>
+          <span className="hidden md:inline">生成选中</span>
         </Button>
         <Button type="button" size="sm" onClick={() => void runFromHere()}>
           <FastForward />
-          <span className="hidden md:inline">从此运行</span>
+          <span className="hidden md:inline">生成页面</span>
         </Button>
       </div>
 
@@ -175,17 +175,17 @@ export function Toolbar({
           <DialogHeader>
             <DialogTitle>怎么用这块画布</DialogTitle>
             <DialogDescription>
-              节点从左往右读。生成时会把连到它上游的简报、风格、布局和组件当成上下文。
+              节点可以自由相连。连进「页面」的上游会驱动最终预览。
             </DialogDescription>
           </DialogHeader>
           <ol className="list-decimal space-y-1.5 pl-4 text-sm text-muted-foreground">
-            <li>双击空白处添加节点，或用工具栏的「添加」。</li>
-            <li>从右侧圆点拖到下一个节点。简报、风格、布局、组件进生成；生成进代码，代码进预览。</li>
-            <li>点生成节点上的「运行」，或用「运行选中 / 从此运行」。</li>
-            <li>代码节点里可以直接改，预览会跟着变。再运行会覆盖手改。</li>
+            <li>双击空白处添加节点。只有页面描述、页面风格、框架&组件、交互动效、数据和页面。</li>
+            <li>从右侧圆点拖到任意节点。连到页面后会自动生成预览。</li>
+            <li>单击节点，打开对话，只改这一节点的文案和参数，不改连线。</li>
+            <li>右侧可以看大预览和代码。手改代码后，再次生成会覆盖。</li>
           </ol>
           <p className="text-xs text-muted-foreground">
-            Ctrl Z 撤销，Ctrl Shift Z 重做。没有模型密钥时，运行会按节点内容本地合成页面。
+            Ctrl Z 撤销，Ctrl Shift Z 重做。没有模型密钥时，生成和对话都在本地完成。
           </p>
         </DialogContent>
       </Dialog>

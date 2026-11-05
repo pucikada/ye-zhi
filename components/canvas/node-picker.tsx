@@ -1,15 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import {
-  AppWindow,
-  Braces,
-  LayoutTemplate,
-  Palette,
-  Puzzle,
-  ScrollText,
-  Sparkles,
-} from "lucide-react";
+import { AppWindow, Database, Palette, ScrollText, Sparkles, Boxes } from "lucide-react";
 
 import { KIND_META, NODE_KINDS } from "@/lib/catalog";
 import type { NodeKind } from "@/lib/types";
@@ -17,11 +9,10 @@ import type { NodeKind } from "@/lib/types";
 const ICONS = {
   brief: ScrollText,
   style: Palette,
-  layout: LayoutTemplate,
-  component: Puzzle,
-  generate: Sparkles,
-  preview: AppWindow,
-  code: Braces,
+  framework: Boxes,
+  motion: Sparkles,
+  data: Database,
+  page: AppWindow,
 } satisfies Record<NodeKind, typeof ScrollText>;
 
 export function NodePicker({
@@ -53,7 +44,7 @@ export function NodePicker({
 
   const width = 280;
   const left = Math.min(x, window.innerWidth - width - 12);
-  const top = Math.min(y, window.innerHeight - 420);
+  const top = Math.min(y, window.innerHeight - 380);
 
   return (
     <div

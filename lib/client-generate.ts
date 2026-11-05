@@ -1,6 +1,8 @@
 import { ensureHtml, extractReact, looksLikeCode, stripFences } from "@/lib/codefmt";
 import { renderPage } from "@/lib/compose";
-import type { Format, GenerationContext } from "@/lib/types";
+import { localNodeEdit } from "@/lib/node-edit";
+import { expandPatch } from "@/lib/node-fields";
+import type { ChatTurn, Format, GenerationContext, NodeEditResult, NodeKind } from "@/lib/types";
 
 export type GenerationResult = {
   code: string;
@@ -87,4 +89,50 @@ export async function requestGeneration(options: {
     return localResult(options.context, "模型输出无法预览，已改用本地合成");
   }
   return { code, source: "model", warning, themeCss: fallback.themeCss };
+}
+
+function asEdit(body: unknown, kind: NodeKind): NodeEditResult | null {
+  if (!body || typeof body !== "object") return null;
+  const record = body as { reply?: unknown; patch?: unknown; source?: unknown };
+  if (typeof record.reply !== "string" || !record.patch || typeof record.patch !== "object") {
+    return null;
+  }
+  return {
+    reply: record.reply,
+    patch: expandPatch(kind, record.patch as Record<string, unknown>),
+    source: record.source === "model" ? "model" : "local",
+  };
+}
+
+export async function requestNodeEdit(options: {
+  kind: NodeKind;
+  data: Record<string, unknown>;
+  message: string;
+  history?: ChatTurn[];
+  signal?: AbortSignal;
+}): Promise<NodeEditResult> {
+  const local = localNodeEdit(options.kind, options.data, options.message);
+  if (staticExport) return local;
+  try {
+    const response = await fetch("/api/generate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        mode: "edit",
+        kind: options.kind,
+        data: options.data,
+        message: options.message,
+        history: options.history ?? [],
+      }),
+      signal: options.signal,
+    });
+    if (!response.ok) return local;
+    const parsed = asEdit(await response.json().catch(() => null), options.kind);
+    if (!parsed) return local;
+    if (Object.keys(parsed.patch).length === 0 && Object.keys(local.patch).length > 0) return local;
+    return parsed;
+  } catch (error) {
+    if (options.signal?.aborted) throw error;
+    return local;
+  }
 }

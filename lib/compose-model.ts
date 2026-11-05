@@ -1,3 +1,4 @@
+import { parseBlocks } from "@/lib/blocks";
 import { STRUCTURES } from "@/lib/catalog";
 import {
   firstComponent,
@@ -18,8 +19,13 @@ import {
 } from "@/lib/spec";
 import { resolveTheme, type ResolvedTheme } from "@/lib/theme";
 import type {
+  ComponentSpec,
+  DataNodeData,
   Density,
+  FrameworkData,
   GenerationContext,
+  MotionData,
+  MotionLevel,
   Radius,
   StructureId,
 } from "@/lib/types";
@@ -59,6 +65,7 @@ export type PageModel = {
   footerNote: string;
   extras: Array<{ title: string; body: string }>;
   cta: { title: string; primary: string; secondary: string };
+  motion: MotionData | null;
 };
 
 function firstSentence(text: string) {
@@ -178,19 +185,126 @@ function defaultStats(): Stat[] {
   ];
 }
 
+function mergeMotion(motions: MotionData[]): MotionData | null {
+  if (motions.length === 0) return null;
+  const rank: Record<MotionLevel, number> = { none: 0, subtle: 1, lively: 2 };
+  const level = motions.reduce<MotionLevel>(
+    (best, item) => (rank[item.level] > rank[best] ? item.level : best),
+    "none",
+  );
+  if (level === "none") {
+    return { level, hover: false, scroll: false, enter: false, notes: "" };
+  }
+  return {
+    level,
+    hover: motions.some((item) => item.hover),
+    scroll: motions.some((item) => item.scroll),
+    enter: motions.some((item) => item.enter),
+    notes: motions.map((item) => item.notes.trim()).filter(Boolean).join("\n"),
+  };
+}
+
+function mergeFrameworks(items: FrameworkData[]): FrameworkData | null {
+  if (items.length === 0) return null;
+  const first = items[0];
+  if (!first) return null;
+  const sections: string[] = [];
+  const seen = new Set<string>();
+  for (const item of items) {
+    const list = item.sections.length ? item.sections : STRUCTURES[item.structure].sections;
+    for (const section of list) {
+      if (seen.has(section)) continue;
+      seen.add(section);
+      sections.push(section);
+    }
+  }
+  return {
+    stack: items.some((item) => item.stack === "react") ? "react" : first.stack,
+    structure: first.structure,
+    sections,
+    components: items.map((item) => item.components.trim()).filter(Boolean).join("\n\n"),
+    notes: items.map((item) => item.notes.trim()).filter(Boolean).join("\n"),
+  };
+}
+
+function jsonTable(sample: string) {
+  try {
+    const value = JSON.parse(sample) as unknown;
+    if (!Array.isArray(value) || value.length === 0) return null;
+    if (!value.every((row) => row && typeof row === "object" && !Array.isArray(row))) return null;
+    const keys = [
+      ...new Set(
+        value.flatMap((row) => Object.keys(row as Record<string, unknown>)),
+      ),
+    ].slice(0, 6);
+    if (keys.length === 0) return null;
+    const lines = [
+      keys.join(" | "),
+      ...value.slice(0, 8).map((row) =>
+        keys
+          .map((key) => String((row as Record<string, unknown>)[key] ?? ""))
+          .join(" | "),
+      ),
+    ];
+    return lines.join("\n");
+  } catch {
+    return null;
+  }
+}
+
+function datasetComponent(item: DataNodeData): ComponentSpec {
+  const name = item.name.trim() || "数据";
+  let kind = "custom";
+  let spec = item.sample.trim();
+  if (item.format === "stats") kind = "stats";
+  else if (item.format === "json") {
+    const table = jsonTable(spec);
+    if (table) {
+      kind = "table";
+      spec = table;
+    }
+  } else if (item.format === "list") {
+    kind = /客户|标识|logo|合作/i.test(name)
+      ? "logos"
+      : /问答|问题/.test(name)
+        ? "faq"
+        : "features";
+  } else if (/价|套餐|档位/.test(name)) kind = "pricing";
+  else kind = "table";
+  return { kind, name, spec };
+}
+
+function mergeComponents(blocks: ComponentSpec[], datasets: DataNodeData[]) {
+  const map = new Map<string, ComponentSpec>();
+  for (const item of blocks) {
+    const key = item.kind === "custom" ? `custom:${item.name}` : item.kind;
+    map.set(key, item);
+  }
+  for (const item of datasets) {
+    const component = datasetComponent(item);
+    if (!component.spec.trim()) continue;
+    const key = component.kind === "custom" ? `custom:${component.name}` : component.kind;
+    map.set(key, component);
+  }
+  return [...map.values()];
+}
+
 export function buildModel(context: GenerationContext): PageModel {
-  const brief = context.briefs[0];
   const style = context.styles[0];
-  const layout = context.layouts[0];
-  const components = context.components;
-  const name = brief?.title?.trim() || "未命名产品";
-  const audience = brief?.audience?.trim() || "";
-  const prompt = brief?.prompt?.trim() || "";
+  const framework = mergeFrameworks(context.frameworks);
+  const motion = mergeMotion(context.motions);
+  const components = mergeComponents(
+    parseBlocks(framework?.components ?? ""),
+    context.datasets,
+  );
+  const name = context.briefs.map((item) => item.title.trim()).find(Boolean) || "未命名产品";
+  const audience = context.briefs.map((item) => item.audience.trim()).find(Boolean) || "";
+  const prompt = context.briefs.map((item) => item.prompt.trim()).filter(Boolean).join("\n");
   const heroSpec = parseHero(firstComponent(components, "hero")?.spec ?? "");
   const sentence = firstSentence(prompt);
   const headline =
     heroSpec.headline ||
-    brief?.headline?.trim() ||
+    context.briefs.map((item) => item.headline.trim()).find(Boolean) ||
     (sentence.length > 0 && sentence.length <= 32 ? sentence : "") ||
     `${name}，先看一页`;
   const lede =
@@ -198,9 +312,9 @@ export function buildModel(context: GenerationContext): PageModel {
     restAfter(prompt, headline === sentence ? sentence : "") ||
     prompt ||
     `${name} 把要说的话收成一页能打开的前端。`;
-  const structure = layout?.structure ?? "landing";
+  const structure = framework?.structure ?? "landing";
   const presetSections = STRUCTURES[structure].sections;
-  const sections = layout?.sections?.length ? [...layout.sections] : [...presetSections];
+  const sections = framework?.sections?.length ? [...framework.sections] : [...presetSections];
   for (const component of components) {
     if (
       component.kind !== "custom" &&
@@ -239,7 +353,10 @@ export function buildModel(context: GenerationContext): PageModel {
     audience,
     headline,
     lede,
-    notes: layout?.notes?.trim() || style?.notes?.trim() || "",
+    notes: [framework?.notes, style?.notes, motion?.notes]
+      .map((item) => item?.trim() ?? "")
+      .filter(Boolean)
+      .join("\n"),
     structure,
     sections,
     theme: resolveTheme(style),
@@ -283,5 +400,6 @@ export function buildModel(context: GenerationContext): PageModel {
       primary: ctaSpec.primary || "开始使用",
       secondary: ctaSpec.secondary || "看示例",
     },
+    motion,
   };
 }

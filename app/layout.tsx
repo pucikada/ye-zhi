@@ -21,7 +21,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "页织",
-  description: "在无限画布上把简报、风格和布局织成前端页面。",
+  description: "在无限画布上把页面描述、风格、框架、动效和数据织成前端页面。",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

@@ -1,17 +1,7 @@
 import type { AppNode, GenerationContext, GraphEdge, NodeKind } from "@/lib/types";
 
-export const OUTGOING: Record<NodeKind, NodeKind[]> = {
-  brief: ["generate"],
-  style: ["generate"],
-  layout: ["generate"],
-  component: ["generate", "layout"],
-  generate: ["preview", "code", "generate"],
-  preview: [],
-  code: ["preview"],
-};
-
 export function canConnect(source: NodeKind, target: NodeKind) {
-  return OUTGOING[source].includes(target);
+  return Boolean(source && target);
 }
 
 export function reaches(
@@ -90,38 +80,44 @@ export function downstreamIds(
 }
 
 export function collectContext(
-  generateId: string,
+  pageId: string,
   nodes: AppNode[],
   edges: Array<Pick<GraphEdge, "source" | "target">>,
 ): GenerationContext {
   const byId = new Map(nodes.map((node) => [node.id, node]));
   const briefs: GenerationContext["briefs"] = [];
   const styles: GenerationContext["styles"] = [];
-  const layouts: GenerationContext["layouts"] = [];
-  const components: GenerationContext["components"] = [];
-  const upstreamCode: string[] = [];
+  const frameworks: GenerationContext["frameworks"] = [];
+  const motions: GenerationContext["motions"] = [];
+  const datasets: GenerationContext["datasets"] = [];
 
-  for (const id of upstreamIds(generateId, edges)) {
+  for (const id of upstreamIds(pageId, edges)) {
     const node = byId.get(id);
     if (!node) continue;
     if (node.type === "brief") briefs.push(node.data);
     else if (node.type === "style") styles.push(node.data);
-    else if (node.type === "layout") layouts.push(node.data);
-    else if (node.type === "component") components.push(node.data);
-    else if (
-      (node.type === "generate" || node.type === "code") &&
-      node.data.code.trim()
-    ) {
-      upstreamCode.push(node.data.code.slice(0, 6000));
-    }
+    else if (node.type === "framework") frameworks.push(node.data);
+    else if (node.type === "motion") motions.push(node.data);
+    else if (node.type === "data") datasets.push(node.data);
   }
 
-  const self = byId.get(generateId);
-  const format = self?.type === "generate" ? self.data.format : "html";
-  return { briefs, styles, layouts, components, upstreamCode, format };
+  const self = byId.get(pageId);
+  const format = self?.type === "page" ? self.data.format : "html";
+  return { briefs, styles, frameworks, motions, datasets, format };
 }
 
-export function sortGenerates(
+export function pageSinks(
+  startId: string,
+  nodes: AppNode[],
+  edges: Array<Pick<GraphEdge, "source" | "target">>,
+) {
+  const byId = new Map(nodes.map((node) => [node.id, node]));
+  return [startId, ...downstreamIds(startId, edges)].filter(
+    (id) => byId.get(id)?.type === "page",
+  );
+}
+
+export function sortPages(
   ids: string[],
   edges: Array<Pick<GraphEdge, "source" | "target">>,
 ) {
@@ -153,34 +149,13 @@ export function sortGenerates(
   return ordered;
 }
 
-export function nearestUpstream(
-  id: string,
-  type: NodeKind,
-  nodes: AppNode[],
-  edges: Array<Pick<GraphEdge, "source" | "target">>,
-) {
-  const incoming = adjacency(edges, true);
-  const byId = new Map(nodes.map((node) => [node.id, node]));
-  const queue = [...(incoming.get(id) ?? [])];
-  const seen = new Set<string>([id]);
-  while (queue.length > 0) {
-    const current = queue.shift();
-    if (!current || seen.has(current)) continue;
-    seen.add(current);
-    const node = byId.get(current);
-    if (node?.type === type) return node;
-    for (const next of incoming.get(current) ?? []) queue.push(next);
-  }
-  return undefined;
-}
-
 export function hasContext(context: GenerationContext) {
   return (
     context.briefs.length +
       context.styles.length +
-      context.layouts.length +
-      context.components.length +
-      context.upstreamCode.length >
+      context.frameworks.length +
+      context.motions.length +
+      context.datasets.length >
     0
   );
 }

@@ -12,6 +12,7 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 
+import { edgeTypes } from "@/components/canvas/flow-edge";
 import { NodePicker } from "@/components/canvas/node-picker";
 import { nodeTypes } from "@/components/canvas/nodes";
 import { KIND_META } from "@/lib/catalog";
@@ -31,6 +32,7 @@ export function FlowCanvas() {
   const setViewport = useCanvas((state) => state.setViewport);
   const viewport = useCanvas((state) => state.viewport);
   const fitRequest = useCanvas((state) => state.fitRequest);
+  const setInspector = useCanvas((state) => state.setInspector);
   const { screenToFlowPosition, fitView } = useReactFlow();
   const nodesReady = useNodesInitialized();
   const skipInitialFit = useRef(Boolean(viewport));
@@ -61,8 +63,8 @@ export function FlowCanvas() {
         const hot = runningIds.includes(edge.source) || runningIds.includes(edge.target);
         return {
           ...edge,
-          animated: hot,
-          style: { stroke: hot ? "#dff25a" : "#5c6158", strokeWidth: 1.6 },
+          type: "flow",
+          data: { hot },
         };
       }),
     [edges, runningIds],
@@ -89,6 +91,13 @@ export function FlowCanvas() {
         onConnect={onConnect}
         isValidConnection={isValidConnection}
         nodeTypes={nodeTypes}
+        edgeTypes={edgeTypes}
+        onNodeClick={(event, node) => {
+          const target = event.target as HTMLElement;
+          if (target.closest("button, a, input, textarea, select, iframe")) return;
+          setPicker(null);
+          setInspector(node.id);
+        }}
         fitView={false}
         fitViewOptions={{ padding: 0.18 }}
         defaultViewport={viewport ?? { x: 0, y: 0, zoom: 0.85 }}
@@ -107,6 +116,7 @@ export function FlowCanvas() {
           }
           lastPaneClick.current = now;
           setPicker(null);
+          setInspector(null);
         }}
         colorMode="dark"
         deleteKeyCode={["Backspace", "Delete"]}
@@ -114,8 +124,8 @@ export function FlowCanvas() {
         minZoom={0.2}
         maxZoom={1.75}
         proOptions={{ hideAttribution: false }}
-        defaultEdgeOptions={{ type: "smoothstep" }}
-        connectionLineStyle={{ stroke: "#dff25a", strokeWidth: 1.6 }}
+        defaultEdgeOptions={{ type: "flow" }}
+        connectionLineStyle={{ stroke: "#dff25a", strokeWidth: 1.8 }}
         connectionRadius={28}
         aria-label="页织画布"
       >
@@ -134,7 +144,7 @@ export function FlowCanvas() {
         <div className="pointer-events-none absolute inset-0 grid place-items-center">
           <div className="pointer-events-auto max-w-sm rounded-2xl border border-white/10 bg-[#16181d]/90 px-5 py-4 text-center shadow-xl">
             <p className="text-sm font-medium">画布是空的</p>
-            <p className="mt-1 text-xs text-white/50">双击空白处添加节点，或从工具栏载入模板。</p>
+            <p className="mt-1 text-xs text-white/50">双击空白处添加节点。点开节点，用对话改内容。</p>
           </div>
         </div>
       ) : null}
