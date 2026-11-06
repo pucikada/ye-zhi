@@ -1,0 +1,740 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>任务运行流示意图 · 示例仪表盘</title>
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js"></script>
+  <style>
+    :root {
+      --bg: #0b1020;
+      --bg2: #121a2f;
+      --panel: rgba(22, 32, 58, 0.92);
+      --panel-border: rgba(120, 150, 220, 0.18);
+      --text: #e8eefc;
+      --muted: #8b9bb8;
+      --accent: #5b8cff;
+      --ok: #3dd68c;
+      --warn: #f5a524;
+      --danger: #f04438;
+      --jump: #ff6b4a;
+      --forward: #4cc9f0;
+      --approve: #a78bfa;
+      --shadow: 0 18px 50px rgba(0, 0, 0, 0.35);
+      --radius: 16px;
+      --font: "SF Pro Display", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", system-ui, sans-serif;
+      --mono: "SF Mono", "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
+    }
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      min-height: 100%;
+      background:
+        radial-gradient(1200px 600px at 10% -10%, rgba(91, 140, 255, 0.22), transparent 55%),
+        radial-gradient(900px 500px at 95% 5%, rgba(255, 107, 74, 0.12), transparent 50%),
+        radial-gradient(800px 500px at 50% 110%, rgba(61, 214, 140, 0.08), transparent 45%),
+        var(--bg);
+      color: var(--text);
+      font-family: var(--font);
+    }
+    body { padding: 24px 20px 48px; }
+    .wrap { max-width: 1280px; margin: 0 auto; }
+    header {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 16px 24px;
+      align-items: flex-end;
+      justify-content: space-between;
+      margin-bottom: 20px;
+    }
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+    .eyebrow .dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: var(--ok);
+      box-shadow: 0 0 0 4px rgba(61, 214, 140, 0.18);
+    }
+    h1 {
+      margin: 0;
+      font-size: clamp(22px, 3vw, 30px);
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+    .sub {
+      margin: 8px 0 0;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.55;
+      max-width: 720px;
+    }
+    .badge-row { display: flex; flex-wrap: wrap; gap: 8px; }
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 7px 12px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--panel-border);
+      color: var(--muted);
+      font-size: 12px;
+    }
+    .pill strong { color: var(--text); font-weight: 600; }
+    .grid {
+      display: grid;
+      grid-template-columns: 1.4fr 0.9fr;
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+    @media (max-width: 980px) {
+      .grid { grid-template-columns: 1fr; }
+    }
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--panel-border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(10px);
+      overflow: hidden;
+    }
+    .card-hd {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 14px 18px;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+    .card-hd h2 {
+      margin: 0;
+      font-size: 15px;
+      font-weight: 650;
+    }
+    .card-hd .hint {
+      color: var(--muted);
+      font-size: 12px;
+    }
+    .card-bd { padding: 8px 8px 12px; }
+    #graph {
+      width: 100%;
+      height: 460px;
+    }
+    .metrics {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      padding: 14px;
+    }
+    .metric {
+      padding: 14px;
+      border-radius: 12px;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.06);
+    }
+    .metric .k {
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+    .metric .v {
+      font-size: 24px;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      font-variant-numeric: tabular-nums;
+    }
+    .metric .d {
+      margin-top: 6px;
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.4;
+    }
+    .metric.ok .v { color: var(--ok); }
+    .metric.warn .v { color: var(--warn); }
+    .metric.danger .v { color: var(--jump); }
+    .metric.blue .v { color: var(--forward); }
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px 16px;
+      padding: 4px 10px 10px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .legend span {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+    }
+    .sw {
+      width: 22px; height: 3px; border-radius: 2px;
+      display: inline-block;
+    }
+    .sw.fwd { background: var(--forward); }
+    .sw.jmp {
+      background: transparent;
+      border-top: 3px dashed var(--jump);
+      height: 0;
+      width: 22px;
+    }
+    .sw.node {
+      width: 10px; height: 10px; border-radius: 3px;
+      background: var(--accent);
+    }
+    .sw.appr { background: var(--approve); }
+    .table-card .card-bd { padding: 0; overflow-x: auto; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+      min-width: 720px;
+    }
+    th, td {
+      padding: 11px 14px;
+      text-align: left;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+      white-space: nowrap;
+    }
+    th {
+      color: var(--muted);
+      font-weight: 550;
+      font-size: 12px;
+      background: rgba(255,255,255,0.02);
+    }
+    td.num { font-variant-numeric: tabular-nums; font-family: var(--mono); font-size: 12.5px; }
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 3px 8px;
+      border-radius: 999px;
+      font-size: 11px;
+      border: 1px solid transparent;
+    }
+    .chip.yes {
+      color: #d9c7ff;
+      background: rgba(167, 139, 250, 0.15);
+      border-color: rgba(167, 139, 250, 0.35);
+    }
+    .chip.no {
+      color: var(--muted);
+      background: rgba(255,255,255,0.04);
+      border-color: rgba(255,255,255,0.08);
+    }
+    .jump-tag {
+      color: var(--jump);
+      font-size: 12px;
+    }
+    #timeline {
+      width: 100%;
+      height: 360px;
+    }
+    footer {
+      margin-top: 18px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.6;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px 18px;
+      justify-content: space-between;
+    }
+    footer code {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: #b7c6e4;
+      background: rgba(255,255,255,0.04);
+      padding: 2px 6px;
+      border-radius: 6px;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div>
+        <div class="eyebrow"><span class="dot"></span>示例数据 · 非真实生产日志</div>
+        <h1>任务运行流可视化示意图</h1>
+        <p class="sub">
+          主视图展示各步骤耗时、重试、人工审批与准出次数；橙色虚线弧为失败跳回。
+          下方时间线还原一单业务被打回后重新执行的过程。
+        </p>
+      </div>
+      <div class="badge-row">
+        <div class="pill">流程 <strong>信贷申请审批</strong></div>
+        <div class="pill">样本窗口 <strong>近 7 日 · 128 单</strong></div>
+        <div class="pill">时区 <strong>Asia/Shanghai</strong></div>
+      </div>
+    </header>
+
+    <div class="grid">
+      <section class="card">
+        <div class="card-hd">
+          <h2>有向过程图 · 聚合视图</h2>
+          <div class="hint">边粗细 ≈ 流量 / 跳回次数</div>
+        </div>
+        <div class="card-bd">
+          <div id="graph"></div>
+          <div class="legend">
+            <span><i class="sw fwd"></i>正常前进</span>
+            <span><i class="sw jmp"></i>失败跳回</span>
+            <span><i class="sw node"></i>步骤节点（含耗时 / 重试 / 准出）</span>
+            <span><i class="sw appr"></i>含人工审批</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="card-hd">
+          <h2>关键指标</h2>
+          <div class="hint">聚合于示例窗口</div>
+        </div>
+        <div class="metrics">
+          <div class="metric blue">
+            <div class="k">中位端到端耗时</div>
+            <div class="v">46<span style="font-size:14px"> 分</span></div>
+            <div class="d">P95 = 3.2 小时（含审批等待）</div>
+          </div>
+          <div class="metric warn">
+            <div class="k">总重试次数</div>
+            <div class="v">87</div>
+            <div class="d">主要集中在「资料校验」「系统处理」</div>
+          </div>
+          <div class="metric">
+            <div class="k">人工审批涉及</div>
+            <div class="v" style="color:var(--approve)">1<span style="font-size:14px"> 步</span></div>
+            <div class="d">通过 101 · 驳回 19 · 中位等待 18 分</div>
+          </div>
+          <div class="metric danger">
+            <div class="k">失败跳回</div>
+            <div class="v">31</div>
+            <div class="d">审批驳回→提交 19 · 质检失败→校验 12</div>
+          </div>
+        </div>
+        <div style="padding:0 14px 16px;color:var(--muted);font-size:12px;line-height:1.55;">
+          <strong style="color:var(--text);">跳回路径：</strong>
+          ① 人工审批驳回 → 提交申请（补件重提）；
+          ② 质检不通过 → 资料校验（修正材料后重跑后续步骤）。
+        </div>
+      </section>
+    </div>
+
+    <section class="card table-card" style="margin-bottom:16px;">
+      <div class="card-hd">
+        <h2>各步骤指标明细</h2>
+        <div class="hint">中位耗时 · 重试 · 审批 · 准出触发 · 跳回</div>
+      </div>
+      <div class="card-bd">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>步骤</th>
+              <th>中位耗时</th>
+              <th>重试次数</th>
+              <th>人工审批</th>
+              <th>准出触发</th>
+              <th>失败跳回至</th>
+            </tr>
+          </thead>
+          <tbody id="step-rows"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="card-hd">
+        <h2>单次运行时间线 · 示例单 #A-2026-1106-017</h2>
+        <div class="hint">横轴时间 · 色块=执行时段 · 橙色箭头=跳回后重跑</div>
+      </div>
+      <div class="card-bd">
+        <div id="timeline"></div>
+      </div>
+    </section>
+
+    <footer>
+      <div>示意图仅用于方案讨论。静态页路径：<code>public/workflow-demo/</code></div>
+      <div>部署于 GitHub Pages · <code>/ye-zhi/workflow-demo/</code></div>
+    </footer>
+  </div>
+
+  <script>
+    const steps = [
+      { id: "s1", name: "提交申请", durationMin: 2.4, retries: 5, approval: false, exitTriggers: 128, jumpTo: null, x: 80, y: 220 },
+      { id: "s2", name: "资料校验", durationMin: 6.8, retries: 31, approval: false, exitTriggers: 141, jumpTo: null, x: 280, y: 220 },
+      { id: "s3", name: "人工审批", durationMin: 18.0, retries: 0, approval: true, exitTriggers: 120, jumpTo: "提交申请", x: 480, y: 220 },
+      { id: "s4", name: "系统处理", durationMin: 9.5, retries: 22, approval: false, exitTriggers: 103, jumpTo: null, x: 680, y: 220 },
+      { id: "s5", name: "质检", durationMin: 4.2, retries: 14, approval: false, exitTriggers: 112, jumpTo: "资料校验", x: 880, y: 220 },
+      { id: "s6", name: "归档", durationMin: 1.1, retries: 0, approval: false, exitTriggers: 97, jumpTo: null, x: 1080, y: 220 }
+    ];
+
+    const forwardEdges = [
+      { from: "s1", to: "s2", count: 128 },
+      { from: "s2", to: "s3", count: 129 },
+      { from: "s3", to: "s4", count: 101 },
+      { from: "s4", to: "s5", count: 100 },
+      { from: "s5", to: "s6", count: 97 }
+    ];
+
+    const jumpEdges = [
+      { from: "s3", to: "s1", count: 19, label: "审批驳回" },
+      { from: "s5", to: "s2", count: 12, label: "质检失败" }
+    ];
+
+    const tbody = document.getElementById("step-rows");
+    steps.forEach((s, i) => {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td class="num">${String(i + 1).padStart(2, "0")}</td>
+        <td><strong>${s.name}</strong></td>
+        <td class="num">${s.durationMin.toFixed(1)} 分</td>
+        <td class="num">${s.retries}</td>
+        <td>${s.approval ? '<span class="chip yes">● 需要审批</span>' : '<span class="chip no">— 自动</span>'}</td>
+        <td class="num">${s.exitTriggers}</td>
+        <td>${s.jumpTo ? `<span class="jump-tag">↘ ${s.jumpTo}（见跳回边）</span>` : "—"}</td>
+      `;
+      tbody.appendChild(tr);
+    });
+
+    function fmtDur(min) {
+      if (min < 1) return `${Math.round(min * 60)}秒`;
+      if (min < 60) return `${min.toFixed(1)}分`;
+      return `${(min / 60).toFixed(1)}时`;
+    }
+
+    const graphChart = echarts.init(document.getElementById("graph"), null, { renderer: "canvas" });
+    const nodes = steps.map((s) => ({
+      id: s.id,
+      name: s.name,
+      x: s.x,
+      y: s.y,
+      symbolSize: [118, 78],
+      value: s.durationMin,
+      category: s.approval ? 1 : 0,
+      label: {
+        show: true,
+        formatter: [
+          `{title|${s.name}}`,
+          `{meta|耗时 ${fmtDur(s.durationMin)}  ·  重试 ${s.retries}}`,
+          `{meta|准出 ${s.exitTriggers}${s.approval ? "  ·  审批" : ""}}`
+        ].join("\n"),
+        rich: {
+          title: { fontSize: 13, fontWeight: 700, color: "#f2f6ff", lineHeight: 20 },
+          meta: { fontSize: 10, color: "#9aa9c7", lineHeight: 15 }
+        },
+        align: "center",
+        verticalAlign: "middle"
+      },
+      itemStyle: {
+        color: s.approval
+          ? new echarts.graphic.LinearGradient(0, 0, 1, 1, [
+              { offset: 0, color: "#2a2150" },
+              { offset: 1, color: "#3b2d72" }
+            ])
+          : new echarts.graphic.LinearGradient(0, 0, 1, 1, [
+              { offset: 0, color: "#1a2744" },
+              { offset: 1, color: "#223560" }
+            ]),
+        borderColor: s.approval ? "#a78bfa" : "#5b8cff",
+        borderWidth: 1.5,
+        shadowBlur: 18,
+        shadowColor: s.approval ? "rgba(167,139,250,0.35)" : "rgba(91,140,255,0.28)"
+      }
+    }));
+
+    const links = [
+      ...forwardEdges.map((e) => ({
+        source: e.from,
+        target: e.to,
+        value: e.count,
+        lineStyle: {
+          color: "#4cc9f0",
+          width: Math.max(1.5, Math.min(6, e.count / 30)),
+          curveness: 0,
+          opacity: 0.9
+        },
+        label: {
+          show: true,
+          formatter: `${e.count}`,
+          color: "#8fdff5",
+          fontSize: 11,
+          backgroundColor: "rgba(11,16,32,0.75)",
+          padding: [2, 5],
+          borderRadius: 4
+        }
+      })),
+      ...jumpEdges.map((e, idx) => ({
+        source: e.from,
+        target: e.to,
+        value: e.count,
+        lineStyle: {
+          color: "#ff6b4a",
+          width: Math.max(2, Math.min(7, e.count / 4)),
+          type: "dashed",
+          curveness: idx === 0 ? 0.45 : -0.55,
+          opacity: 0.95
+        },
+        label: {
+          show: true,
+          formatter: `${e.label} ${e.count}次`,
+          color: "#ffb09e",
+          fontSize: 11,
+          backgroundColor: "rgba(40,14,10,0.8)",
+          padding: [3, 6],
+          borderRadius: 4
+        }
+      }))
+    ];
+
+    graphChart.setOption({
+      backgroundColor: "transparent",
+      tooltip: {
+        trigger: "item",
+        backgroundColor: "rgba(16,22,40,0.95)",
+        borderColor: "rgba(120,150,220,0.25)",
+        textStyle: { color: "#e8eefc", fontSize: 12 },
+        formatter(params) {
+          if (params.dataType === "edge") {
+            const isJump = params.data.lineStyle && params.data.lineStyle.type === "dashed";
+            return `${isJump ? "失败跳回" : "正常前进"}：${params.data.source} → ${params.data.target}<br/>次数：${params.data.value}`;
+          }
+          const s = steps.find((x) => x.id === params.data.id);
+          if (!s) return params.name;
+          return [
+            `<strong>${s.name}</strong>`,
+            `中位耗时：${fmtDur(s.durationMin)}`,
+            `重试次数：${s.retries}`,
+            `人工审批：${s.approval ? "是" : "否"}`,
+            `准出触发：${s.exitTriggers}`,
+            s.jumpTo ? `失败时可跳回：${s.jumpTo}` : "无跳回"
+          ].join("<br/>");
+        }
+      },
+      categories: [
+        { name: "自动步骤" },
+        { name: "人工审批" }
+      ],
+      series: [{
+        type: "graph",
+        layout: "none",
+        roam: true,
+        draggable: false,
+        edgeSymbol: ["none", "arrow"],
+        edgeSymbolSize: [0, 10],
+        data: nodes,
+        links,
+        categories: [
+          { name: "自动步骤" },
+          { name: "人工审批" }
+        ],
+        lineStyle: { opacity: 0.9 },
+        emphasis: {
+          focus: "adjacency",
+          lineStyle: { width: 5 }
+        },
+        symbol: "roundRect"
+      }]
+    });
+
+    // Timeline: single-run story with jump-backs
+    // Base time: 2026-11-06 09:12 Asia/Shanghai (display as minutes from start)
+    const runSpans = [
+      // first pass
+      { step: "提交申请", start: 0, end: 3, pass: 1, status: "ok" },
+      { step: "资料校验", start: 3, end: 11, pass: 1, status: "ok" },
+      { step: "人工审批", start: 11, end: 28, pass: 1, status: "reject" },
+      // jump back to 提交申请
+      { step: "提交申请", start: 30, end: 34, pass: 2, status: "ok", jumpFrom: "人工审批", jumpLabel: "审批驳回 → 提交申请" },
+      { step: "资料校验", start: 34, end: 40, pass: 2, status: "ok" },
+      { step: "人工审批", start: 40, end: 52, pass: 2, status: "ok" },
+      { step: "系统处理", start: 52, end: 64, pass: 2, status: "retry", retries: 1 },
+      { step: "质检", start: 64, end: 70, pass: 2, status: "fail" },
+      // jump back to 资料校验
+      { step: "资料校验", start: 72, end: 79, pass: 3, status: "ok", jumpFrom: "质检", jumpLabel: "质检失败 → 资料校验" },
+      { step: "人工审批", start: 79, end: 86, pass: 3, status: "ok" },
+      { step: "系统处理", start: 86, end: 94, pass: 3, status: "ok" },
+      { step: "质检", start: 94, end: 98, pass: 3, status: "ok" },
+      { step: "归档", start: 98, end: 100, pass: 3, status: "ok" }
+    ];
+
+    const stepOrder = ["提交申请", "资料校验", "人工审批", "系统处理", "质检", "归档"];
+    const colorByStatus = {
+      ok: "#3dd68c",
+      reject: "#ff6b4a",
+      fail: "#f04438",
+      retry: "#f5a524"
+    };
+
+    const timelineChart = echarts.init(document.getElementById("timeline"), null, { renderer: "canvas" });
+    const customData = runSpans.map((span) => {
+      const y = stepOrder.indexOf(span.step);
+      return {
+        name: span.step,
+        value: [y, span.start, span.end, span.end - span.start, span.pass, span.status],
+        itemStyle: { color: colorByStatus[span.status] || "#5b8cff" },
+        jumpFrom: span.jumpFrom || null,
+        jumpLabel: span.jumpLabel || null,
+        retries: span.retries || 0
+      };
+    });
+
+    // Jump markers as markLine-like custom graphics via graphic + extra series points
+    const jumpMarkers = runSpans
+      .filter((s) => s.jumpFrom)
+      .map((s) => {
+        const toY = stepOrder.indexOf(s.step);
+        const fromY = stepOrder.indexOf(s.jumpFrom);
+        return { time: s.start - 1, fromY, toY, label: s.jumpLabel };
+      });
+
+    function renderItem(params, api) {
+      const categoryIndex = api.value(0);
+      const start = api.coord([api.value(1), categoryIndex]);
+      const end = api.coord([api.value(2), categoryIndex]);
+      const height = api.size([0, 1])[1] * 0.45;
+      const rectShape = echarts.graphic.clipRectByRect(
+        {
+          x: start[0],
+          y: start[1] - height / 2,
+          width: Math.max(end[0] - start[0], 4),
+          height
+        },
+        {
+          x: params.coordSys.x,
+          y: params.coordSys.y,
+          width: params.coordSys.width,
+          height: params.coordSys.height
+        }
+      );
+      return rectShape && {
+        type: "rect",
+        transition: ["shape"],
+        shape: { ...rectShape, r: 5 },
+        style: api.style()
+      };
+    }
+
+    timelineChart.setOption({
+      backgroundColor: "transparent",
+      tooltip: {
+        backgroundColor: "rgba(16,22,40,0.95)",
+        borderColor: "rgba(120,150,220,0.25)",
+        textStyle: { color: "#e8eefc", fontSize: 12 },
+        formatter(params) {
+          const v = params.value;
+          const statusMap = { ok: "成功", reject: "驳回", fail: "失败", retry: "含重试" };
+          let html = `<strong>${params.name}</strong><br/>第 ${v[4]} 次进入<br/>时段：T+${v[1]} → T+${v[2]} 分（${v[3]} 分）<br/>状态：${statusMap[v[5]] || v[5]}`;
+          if (params.data.jumpLabel) html += `<br/><span style="color:#ffb09e">${params.data.jumpLabel}</span>`;
+          if (params.data.retries) html += `<br/>本段重试：${params.data.retries}`;
+          return html;
+        }
+      },
+      grid: { left: 88, right: 28, top: 36, bottom: 48 },
+      xAxis: {
+        type: "value",
+        name: "分钟（自启动）",
+        nameTextStyle: { color: "#8b9bb8", fontSize: 11 },
+        min: 0,
+        max: 105,
+        axisLabel: { color: "#8b9bb8", formatter: (v) => `T+${v}` },
+        axisLine: { lineStyle: { color: "rgba(255,255,255,0.12)" } },
+        splitLine: { lineStyle: { color: "rgba(255,255,255,0.06)" } }
+      },
+      yAxis: {
+        type: "category",
+        data: stepOrder,
+        axisLabel: { color: "#c9d4ee", fontSize: 12 },
+        axisLine: { show: false },
+        axisTick: { show: false },
+        splitLine: { show: true, lineStyle: { color: "rgba(255,255,255,0.05)" } }
+      },
+      series: [{
+        type: "custom",
+        renderItem,
+        itemStyle: { opacity: 0.92 },
+        encode: { x: [1, 2], y: 0 },
+        data: customData,
+        z: 2
+      }, {
+        // invisible points to help draw jump arrows via graphic after render
+        type: "scatter",
+        data: [],
+        silent: true
+      }]
+    });
+
+    function drawJumpArrows() {
+      const els = [];
+      jumpMarkers.forEach((jm) => {
+        const from = timelineChart.convertToPixel({ xAxisIndex: 0, yAxisIndex: 0 }, [jm.time, jm.fromY]);
+        const to = timelineChart.convertToPixel({ xAxisIndex: 0, yAxisIndex: 0 }, [jm.time, jm.toY]);
+        if (!from || !to) return;
+        const midY = (from[1] + to[1]) / 2;
+        const bulge = -36;
+        els.push({
+          type: "bezierCurve",
+          shape: {
+            x1: from[0], y1: from[1],
+            cpx1: from[0] + bulge, cpy1: midY,
+            cpx2: to[0] + bulge, cpy2: midY,
+            x2: to[0], y2: to[1]
+          },
+          style: {
+            stroke: "#ff6b4a",
+            lineWidth: 2,
+            lineDash: [6, 4],
+            shadowBlur: 8,
+            shadowColor: "rgba(255,107,74,0.45)"
+          },
+          z: 10
+        });
+        // arrow head
+        const dir = to[1] > from[1] ? 1 : -1;
+        els.push({
+          type: "polygon",
+          shape: {
+            points: [
+              [to[0], to[1]],
+              [to[0] - 5, to[1] - 8 * dir],
+              [to[0] + 5, to[1] - 8 * dir]
+            ]
+          },
+          style: { fill: "#ff6b4a" },
+          z: 11
+        });
+        els.push({
+          type: "text",
+          style: {
+            x: Math.min(from[0], to[0]) + bulge - 4,
+            y: midY,
+            text: jm.label,
+            fill: "#ffb09e",
+            font: "11px sans-serif",
+            align: "right",
+            verticalAlign: "middle",
+            textShadowColor: "rgba(0,0,0,0.6)",
+            textShadowBlur: 4
+          },
+          z: 12
+        });
+      });
+      timelineChart.setOption({ graphic: els });
+    }
+
+    setTimeout(drawJumpArrows, 60);
+
+    window.addEventListener("resize", () => {
+      graphChart.resize();
+      timelineChart.resize();
+      setTimeout(drawJumpArrows, 60);
+    });
+  </script>
+</body>
+</html>
