@@ -8,7 +8,6 @@
   <style>
     :root {
       --bg: #0b1020;
-      --bg2: #121a2f;
       --panel: rgba(22, 32, 58, 0.92);
       --panel-border: rgba(120, 150, 220, 0.18);
       --text: #e8eefc;
@@ -16,8 +15,8 @@
       --accent: #5b8cff;
       --ok: #3dd68c;
       --warn: #f5a524;
-      --danger: #f04438;
       --jump: #ff6b4a;
+      --retry: #38bdf8;
       --forward: #4cc9f0;
       --approve: #a78bfa;
       --shadow: 0 18px 50px rgba(0, 0, 0, 0.35);
@@ -32,7 +31,7 @@
       background:
         radial-gradient(1200px 600px at 10% -10%, rgba(91, 140, 255, 0.22), transparent 55%),
         radial-gradient(900px 500px at 95% 5%, rgba(255, 107, 74, 0.12), transparent 50%),
-        radial-gradient(800px 500px at 50% 110%, rgba(61, 214, 140, 0.08), transparent 45%),
+        radial-gradient(800px 500px at 50% 110%, rgba(56, 189, 248, 0.10), transparent 45%),
         var(--bg);
       color: var(--text);
       font-family: var(--font);
@@ -73,7 +72,7 @@
       color: var(--muted);
       font-size: 14px;
       line-height: 1.55;
-      max-width: 720px;
+      max-width: 780px;
     }
     .badge-row { display: flex; flex-wrap: wrap; gap: 8px; }
     .pill {
@@ -90,7 +89,7 @@
     .pill strong { color: var(--text); font-weight: 600; }
     .grid {
       display: grid;
-      grid-template-columns: 1.4fr 0.9fr;
+      grid-template-columns: 1.45fr 0.85fr;
       gap: 16px;
       margin-bottom: 16px;
     }
@@ -113,20 +112,10 @@
       padding: 14px 18px;
       border-bottom: 1px solid rgba(255,255,255,0.06);
     }
-    .card-hd h2 {
-      margin: 0;
-      font-size: 15px;
-      font-weight: 650;
-    }
-    .card-hd .hint {
-      color: var(--muted);
-      font-size: 12px;
-    }
+    .card-hd h2 { margin: 0; font-size: 15px; font-weight: 650; }
+    .card-hd .hint { color: var(--muted); font-size: 12px; }
     .card-bd { padding: 8px 8px 12px; }
-    #graph {
-      width: 100%;
-      height: 460px;
-    }
+    #graph { width: 100%; height: 480px; }
     .metrics {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -139,27 +128,18 @@
       background: rgba(255,255,255,0.03);
       border: 1px solid rgba(255,255,255,0.06);
     }
-    .metric .k {
-      font-size: 12px;
-      color: var(--muted);
-      margin-bottom: 8px;
-    }
+    .metric .k { font-size: 12px; color: var(--muted); margin-bottom: 8px; }
     .metric .v {
       font-size: 24px;
       font-weight: 700;
       letter-spacing: -0.03em;
       font-variant-numeric: tabular-nums;
     }
-    .metric .d {
-      margin-top: 6px;
-      font-size: 12px;
-      color: var(--muted);
-      line-height: 1.4;
-    }
-    .metric.ok .v { color: var(--ok); }
+    .metric .d { margin-top: 6px; font-size: 12px; color: var(--muted); line-height: 1.4; }
     .metric.warn .v { color: var(--warn); }
     .metric.danger .v { color: var(--jump); }
     .metric.blue .v { color: var(--forward); }
+    .metric.retry .v { color: var(--retry); }
     .legend {
       display: flex;
       flex-wrap: wrap;
@@ -168,33 +148,31 @@
       font-size: 12px;
       color: var(--muted);
     }
-    .legend span {
-      display: inline-flex;
-      align-items: center;
-      gap: 7px;
-    }
-    .sw {
-      width: 22px; height: 3px; border-radius: 2px;
-      display: inline-block;
-    }
+    .legend span { display: inline-flex; align-items: center; gap: 7px; }
+    .sw { width: 22px; height: 3px; border-radius: 2px; display: inline-block; }
     .sw.fwd { background: var(--forward); }
-    .sw.jmp {
+    .sw.jmp { background: transparent; border-top: 3px dashed var(--jump); height: 0; width: 22px; }
+    .sw.retry {
       background: transparent;
-      border-top: 3px dashed var(--jump);
-      height: 0;
-      width: 22px;
+      border: 2px solid var(--retry);
+      border-radius: 50%;
+      width: 12px; height: 12px;
     }
-    .sw.node {
-      width: 10px; height: 10px; border-radius: 3px;
-      background: var(--accent);
+    .sw.node { width: 10px; height: 10px; border-radius: 3px; background: var(--accent); }
+    .sw.appr { background: var(--approve); width: 10px; height: 10px; border-radius: 3px; }
+    .note {
+      padding: 0 14px 16px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.6;
     }
-    .sw.appr { background: var(--approve); }
+    .note strong { color: var(--text); }
     .table-card .card-bd { padding: 0; overflow-x: auto; }
     table {
       width: 100%;
       border-collapse: collapse;
       font-size: 13px;
-      min-width: 720px;
+      min-width: 820px;
     }
     th, td {
       padding: 11px 14px;
@@ -228,14 +206,13 @@
       background: rgba(255,255,255,0.04);
       border-color: rgba(255,255,255,0.08);
     }
-    .jump-tag {
-      color: var(--jump);
-      font-size: 12px;
+    .chip.retry {
+      color: #bae6fd;
+      background: rgba(56, 189, 248, 0.14);
+      border-color: rgba(56, 189, 248, 0.4);
     }
-    #timeline {
-      width: 100%;
-      height: 360px;
-    }
+    .jump-tag { color: var(--jump); font-size: 12px; }
+    #timeline { width: 100%; height: 390px; }
     footer {
       margin-top: 18px;
       color: var(--muted);
@@ -263,8 +240,8 @@
         <div class="eyebrow"><span class="dot"></span>示例数据 · 非真实生产日志</div>
         <h1>任务运行流可视化示意图</h1>
         <p class="sub">
-          主视图展示各步骤耗时、重试、人工审批与准出次数；橙色虚线弧为失败跳回。
-          下方时间线还原一单业务被打回后重新执行的过程。
+          「重试」分两种：<strong style="color:#7dd3fc">本步重试</strong>（用户在当前步骤自己再跑，青色自环）
+          与 <strong style="color:#ffb09e">跨步跳回</strong>（后续步骤失败跳回之前步骤，橙色虚线弧）。二者分列，互不计入。
         </p>
       </div>
       <div class="badge-row">
@@ -278,14 +255,15 @@
       <section class="card">
         <div class="card-hd">
           <h2>有向过程图 · 聚合视图</h2>
-          <div class="hint">边粗细 ≈ 流量 / 跳回次数</div>
+          <div class="hint">边粗细 ≈ 次数；自环 = 本步重试</div>
         </div>
         <div class="card-bd">
           <div id="graph"></div>
           <div class="legend">
             <span><i class="sw fwd"></i>正常前进</span>
-            <span><i class="sw jmp"></i>失败跳回</span>
-            <span><i class="sw node"></i>步骤节点（含耗时 / 重试 / 准出）</span>
+            <span><i class="sw retry"></i>本步重试（自环）</span>
+            <span><i class="sw jmp"></i>跨步跳回</span>
+            <span><i class="sw node"></i>步骤节点</span>
             <span><i class="sw appr"></i>含人工审批</span>
           </div>
         </div>
@@ -294,7 +272,7 @@
       <section class="card">
         <div class="card-hd">
           <h2>关键指标</h2>
-          <div class="hint">聚合于示例窗口</div>
+          <div class="hint">两种重试分开统计</div>
         </div>
         <div class="metrics">
           <div class="metric blue">
@@ -302,26 +280,30 @@
             <div class="v">46<span style="font-size:14px"> 分</span></div>
             <div class="d">P95 = 3.2 小时（含审批等待）</div>
           </div>
-          <div class="metric warn">
-            <div class="k">总重试次数</div>
-            <div class="v">87</div>
-            <div class="d">主要集中在「资料校验」「系统处理」</div>
+          <div class="metric retry">
+            <div class="k">本步重试合计</div>
+            <div class="v">58</div>
+            <div class="d">资料校验 31 · 系统处理 22 · 其他 5</div>
+          </div>
+          <div class="metric danger">
+            <div class="k">跨步跳回合计</div>
+            <div class="v">31</div>
+            <div class="d">审批驳回→提交 19 · 质检失败→校验 12</div>
           </div>
           <div class="metric">
             <div class="k">人工审批涉及</div>
             <div class="v" style="color:var(--approve)">1<span style="font-size:14px"> 步</span></div>
             <div class="d">通过 101 · 驳回 19 · 中位等待 18 分</div>
           </div>
-          <div class="metric danger">
-            <div class="k">失败跳回</div>
-            <div class="v">31</div>
-            <div class="d">审批驳回→提交 19 · 质检失败→校验 12</div>
-          </div>
         </div>
-        <div style="padding:0 14px 16px;color:var(--muted);font-size:12px;line-height:1.55;">
-          <strong style="color:var(--text);">跳回路径：</strong>
-          ① 人工审批驳回 → 提交申请（补件重提）；
-          ② 质检不通过 → 资料校验（修正材料后重跑后续步骤）。
+        <div class="note">
+          <strong>定义：</strong>
+          本步重试 = 用户停留在当前步骤再次执行；
+          跨步跳回 = 从失败步骤回到更早步骤后重跑。
+          <br/>
+          <strong>跳回路径：</strong>
+          ① 人工审批驳回 → 提交申请；
+          ② 质检不通过 → 资料校验。
         </div>
       </section>
     </div>
@@ -329,7 +311,7 @@
     <section class="card table-card" style="margin-bottom:16px;">
       <div class="card-hd">
         <h2>各步骤指标明细</h2>
-        <div class="hint">中位耗时 · 重试 · 审批 · 准出触发 · 跳回</div>
+        <div class="hint">本步重试 ≠ 跨步跳回</div>
       </div>
       <div class="card-bd">
         <table>
@@ -338,10 +320,10 @@
               <th>#</th>
               <th>步骤</th>
               <th>中位耗时</th>
-              <th>重试次数</th>
+              <th>本步重试</th>
               <th>人工审批</th>
               <th>准出触发</th>
-              <th>失败跳回至</th>
+              <th>跨步跳回至</th>
             </tr>
           </thead>
           <tbody id="step-rows"></tbody>
@@ -352,7 +334,7 @@
     <section class="card">
       <div class="card-hd">
         <h2>单次运行时间线 · 示例单 #A-2026-1106-017</h2>
-        <div class="hint">横轴时间 · 色块=执行时段 · 橙色箭头=跳回后重跑</div>
+        <div class="hint">同一步骤连续色块 = 本步重试 · 橙色箭头 = 跨步跳回</div>
       </div>
       <div class="card-bd">
         <div id="timeline"></div>
@@ -367,12 +349,12 @@
 
   <script>
     const steps = [
-      { id: "s1", name: "提交申请", durationMin: 2.4, retries: 5, approval: false, exitTriggers: 128, jumpTo: null, x: 80, y: 220 },
-      { id: "s2", name: "资料校验", durationMin: 6.8, retries: 31, approval: false, exitTriggers: 141, jumpTo: null, x: 280, y: 220 },
-      { id: "s3", name: "人工审批", durationMin: 18.0, retries: 0, approval: true, exitTriggers: 120, jumpTo: "提交申请", x: 480, y: 220 },
-      { id: "s4", name: "系统处理", durationMin: 9.5, retries: 22, approval: false, exitTriggers: 103, jumpTo: null, x: 680, y: 220 },
-      { id: "s5", name: "质检", durationMin: 4.2, retries: 14, approval: false, exitTriggers: 112, jumpTo: "资料校验", x: 880, y: 220 },
-      { id: "s6", name: "归档", durationMin: 1.1, retries: 0, approval: false, exitTriggers: 97, jumpTo: null, x: 1080, y: 220 }
+      { id: "s1", name: "提交申请", durationMin: 2.4, localRetries: 3, approval: false, exitTriggers: 128, jumpTo: null, x: 70, y: 230 },
+      { id: "s2", name: "资料校验", durationMin: 6.8, localRetries: 31, approval: false, exitTriggers: 141, jumpTo: null, x: 280, y: 230 },
+      { id: "s3", name: "人工审批", durationMin: 18.0, localRetries: 0, approval: true, exitTriggers: 120, jumpTo: "提交申请", x: 490, y: 230 },
+      { id: "s4", name: "系统处理", durationMin: 9.5, localRetries: 22, approval: false, exitTriggers: 103, jumpTo: null, x: 700, y: 230 },
+      { id: "s5", name: "质检", durationMin: 4.2, localRetries: 2, approval: false, exitTriggers: 112, jumpTo: "资料校验", x: 910, y: 230 },
+      { id: "s6", name: "归档", durationMin: 1.1, localRetries: 0, approval: false, exitTriggers: 97, jumpTo: null, x: 1110, y: 230 }
     ];
 
     const forwardEdges = [
@@ -384,8 +366,8 @@
     ];
 
     const jumpEdges = [
-      { from: "s3", to: "s1", count: 19, label: "审批驳回" },
-      { from: "s5", to: "s2", count: 12, label: "质检失败" }
+      { from: "s3", to: "s1", count: 19, label: "跳回 19 次 · 审批驳回" },
+      { from: "s5", to: "s2", count: 12, label: "跳回 12 次 · 质检失败" }
     ];
 
     const tbody = document.getElementById("step-rows");
@@ -395,10 +377,12 @@
         <td class="num">${String(i + 1).padStart(2, "0")}</td>
         <td><strong>${s.name}</strong></td>
         <td class="num">${s.durationMin.toFixed(1)} 分</td>
-        <td class="num">${s.retries}</td>
+        <td>${s.localRetries
+          ? `<span class="chip retry">↻ 本步重试 ${s.localRetries}</span>`
+          : `<span class="chip no">0</span>`}</td>
         <td>${s.approval ? '<span class="chip yes">● 需要审批</span>' : '<span class="chip no">— 自动</span>'}</td>
         <td class="num">${s.exitTriggers}</td>
-        <td>${s.jumpTo ? `<span class="jump-tag">↘ ${s.jumpTo}（见跳回边）</span>` : "—"}</td>
+        <td>${s.jumpTo ? `<span class="jump-tag">↘ ${s.jumpTo}</span>` : "—"}</td>
       `;
       tbody.appendChild(tr);
     });
@@ -410,24 +394,30 @@
     }
 
     const graphChart = echarts.init(document.getElementById("graph"), null, { renderer: "canvas" });
+
     const nodes = steps.map((s) => ({
       id: s.id,
       name: s.name,
       x: s.x,
       y: s.y,
-      symbolSize: [118, 78],
+      symbolSize: [128, 86],
       value: s.durationMin,
       category: s.approval ? 1 : 0,
       label: {
         show: true,
         formatter: [
           `{title|${s.name}}`,
-          `{meta|耗时 ${fmtDur(s.durationMin)}  ·  重试 ${s.retries}}`,
-          `{meta|准出 ${s.exitTriggers}${s.approval ? "  ·  审批" : ""}}`
+          `{meta|耗时 ${fmtDur(s.durationMin)}  ·  准出 ${s.exitTriggers}}`,
+          s.localRetries
+            ? `{retry|本步重试 ${s.localRetries}}`
+            : `{meta|本步重试 0}`,
+          s.approval ? `{appr|人工审批}` : `{meta|}`
         ].join("\n"),
         rich: {
           title: { fontSize: 13, fontWeight: 700, color: "#f2f6ff", lineHeight: 20 },
-          meta: { fontSize: 10, color: "#9aa9c7", lineHeight: 15 }
+          meta: { fontSize: 10, color: "#9aa9c7", lineHeight: 15 },
+          retry: { fontSize: 10, color: "#7dd3fc", fontWeight: 650, lineHeight: 16 },
+          appr: { fontSize: 10, color: "#d9c7ff", lineHeight: 15 }
         },
         align: "center",
         verticalAlign: "middle"
@@ -454,6 +444,7 @@
         source: e.from,
         target: e.to,
         value: e.count,
+        kind: "forward",
         lineStyle: {
           color: "#4cc9f0",
           width: Math.max(1.5, Math.min(6, e.count / 30)),
@@ -470,20 +461,44 @@
           borderRadius: 4
         }
       })),
-      ...jumpEdges.map((e, idx) => ({
-        source: e.from,
-        target: e.to,
-        value: e.count,
+      // 本步重试：自环
+      ...steps.filter((s) => s.localRetries > 0).map((s, idx) => ({
+        source: s.id,
+        target: s.id,
+        value: s.localRetries,
+        kind: "localRetry",
         lineStyle: {
-          color: "#ff6b4a",
-          width: Math.max(2, Math.min(7, e.count / 4)),
-          type: "dashed",
-          curveness: idx === 0 ? 0.45 : -0.55,
+          color: "#38bdf8",
+          width: Math.max(2, Math.min(6, s.localRetries / 8)),
+          type: "solid",
+          curveness: 0.55 + (idx % 2) * 0.08,
           opacity: 0.95
         },
         label: {
           show: true,
-          formatter: `${e.label} ${e.count}次`,
+          formatter: `本步重试 ${s.localRetries}`,
+          color: "#7dd3fc",
+          fontSize: 11,
+          backgroundColor: "rgba(8, 28, 42, 0.85)",
+          padding: [3, 6],
+          borderRadius: 4
+        }
+      })),
+      ...jumpEdges.map((e, idx) => ({
+        source: e.from,
+        target: e.to,
+        value: e.count,
+        kind: "jump",
+        lineStyle: {
+          color: "#ff6b4a",
+          width: Math.max(2, Math.min(7, e.count / 4)),
+          type: "dashed",
+          curveness: idx === 0 ? 0.48 : -0.58,
+          opacity: 0.95
+        },
+        label: {
+          show: true,
+          formatter: e.label,
           color: "#ffb09e",
           fontSize: 11,
           backgroundColor: "rgba(40,14,10,0.8)",
@@ -502,25 +517,27 @@
         textStyle: { color: "#e8eefc", fontSize: 12 },
         formatter(params) {
           if (params.dataType === "edge") {
-            const isJump = params.data.lineStyle && params.data.lineStyle.type === "dashed";
-            return `${isJump ? "失败跳回" : "正常前进"}：${params.data.source} → ${params.data.target}<br/>次数：${params.data.value}`;
+            const kind = params.data.kind;
+            if (kind === "localRetry") {
+              return `本步重试：用户在「${params.data.source}」自己再跑<br/>次数：${params.data.value}`;
+            }
+            if (kind === "jump") {
+              return `跨步跳回：${params.data.source} → ${params.data.target}<br/>次数：${params.data.value}`;
+            }
+            return `正常前进：${params.data.source} → ${params.data.target}<br/>次数：${params.data.value}`;
           }
           const s = steps.find((x) => x.id === params.data.id);
           if (!s) return params.name;
           return [
             `<strong>${s.name}</strong>`,
             `中位耗时：${fmtDur(s.durationMin)}`,
-            `重试次数：${s.retries}`,
+            `本步重试：${s.localRetries}`,
             `人工审批：${s.approval ? "是" : "否"}`,
             `准出触发：${s.exitTriggers}`,
-            s.jumpTo ? `失败时可跳回：${s.jumpTo}` : "无跳回"
+            s.jumpTo ? `失败时可跨步跳回：${s.jumpTo}` : "无跨步跳回"
           ].join("<br/>");
         }
       },
-      categories: [
-        { name: "自动步骤" },
-        { name: "人工审批" }
-      ],
       series: [{
         type: "graph",
         layout: "none",
@@ -543,25 +560,23 @@
       }]
     });
 
-    // Timeline: single-run story with jump-backs
-    // Base time: 2026-11-06 09:12 Asia/Shanghai (display as minutes from start)
+    // 时间线：同一步骤连续色块=本步重试；橙色箭头=跨步跳回
     const runSpans = [
-      // first pass
       { step: "提交申请", start: 0, end: 3, pass: 1, status: "ok" },
-      { step: "资料校验", start: 3, end: 11, pass: 1, status: "ok" },
-      { step: "人工审批", start: 11, end: 28, pass: 1, status: "reject" },
-      // jump back to 提交申请
-      { step: "提交申请", start: 30, end: 34, pass: 2, status: "ok", jumpFrom: "人工审批", jumpLabel: "审批驳回 → 提交申请" },
-      { step: "资料校验", start: 34, end: 40, pass: 2, status: "ok" },
-      { step: "人工审批", start: 40, end: 52, pass: 2, status: "ok" },
-      { step: "系统处理", start: 52, end: 64, pass: 2, status: "retry", retries: 1 },
-      { step: "质检", start: 64, end: 70, pass: 2, status: "fail" },
-      // jump back to 资料校验
-      { step: "资料校验", start: 72, end: 79, pass: 3, status: "ok", jumpFrom: "质检", jumpLabel: "质检失败 → 资料校验" },
-      { step: "人工审批", start: 79, end: 86, pass: 3, status: "ok" },
-      { step: "系统处理", start: 86, end: 94, pass: 3, status: "ok" },
-      { step: "质检", start: 94, end: 98, pass: 3, status: "ok" },
-      { step: "归档", start: 98, end: 100, pass: 3, status: "ok" }
+      { step: "资料校验", start: 3, end: 8, pass: 1, status: "retry", localRetry: true },
+      { step: "资料校验", start: 8.5, end: 14, pass: 1, status: "ok", localRetryOf: true, label: "本步重试" },
+      { step: "人工审批", start: 14, end: 30, pass: 1, status: "reject" },
+      { step: "提交申请", start: 32, end: 36, pass: 2, status: "ok", jumpFrom: "人工审批", jumpLabel: "跨步跳回：审批驳回 → 提交申请" },
+      { step: "资料校验", start: 36, end: 42, pass: 2, status: "ok" },
+      { step: "人工审批", start: 42, end: 54, pass: 2, status: "ok" },
+      { step: "系统处理", start: 54, end: 60, pass: 2, status: "retry", localRetry: true },
+      { step: "系统处理", start: 60.5, end: 68, pass: 2, status: "ok", localRetryOf: true, label: "本步重试" },
+      { step: "质检", start: 68, end: 74, pass: 2, status: "fail" },
+      { step: "资料校验", start: 76, end: 83, pass: 3, status: "ok", jumpFrom: "质检", jumpLabel: "跨步跳回：质检失败 → 资料校验" },
+      { step: "人工审批", start: 83, end: 90, pass: 3, status: "ok" },
+      { step: "系统处理", start: 90, end: 98, pass: 3, status: "ok" },
+      { step: "质检", start: 98, end: 102, pass: 3, status: "ok" },
+      { step: "归档", start: 102, end: 104, pass: 3, status: "ok" }
     ];
 
     const stepOrder = ["提交申请", "资料校验", "人工审批", "系统处理", "质检", "归档"];
@@ -569,7 +584,7 @@
       ok: "#3dd68c",
       reject: "#ff6b4a",
       fail: "#f04438",
-      retry: "#f5a524"
+      retry: "#38bdf8"
     };
 
     const timelineChart = echarts.init(document.getElementById("timeline"), null, { renderer: "canvas" });
@@ -577,28 +592,49 @@
       const y = stepOrder.indexOf(span.step);
       return {
         name: span.step,
-        value: [y, span.start, span.end, span.end - span.start, span.pass, span.status],
-        itemStyle: { color: colorByStatus[span.status] || "#5b8cff" },
+        value: [y, span.start, span.end, +(span.end - span.start).toFixed(1), span.pass, span.status],
+        itemStyle: {
+          color: span.localRetryOf
+            ? "#38bdf8"
+            : (colorByStatus[span.status] || "#5b8cff")
+        },
         jumpFrom: span.jumpFrom || null,
         jumpLabel: span.jumpLabel || null,
-        retries: span.retries || 0
+        localRetry: !!span.localRetry,
+        localRetryOf: !!span.localRetryOf,
+        label: span.label || null
       };
     });
 
-    // Jump markers as markLine-like custom graphics via graphic + extra series points
     const jumpMarkers = runSpans
       .filter((s) => s.jumpFrom)
-      .map((s) => {
-        const toY = stepOrder.indexOf(s.step);
-        const fromY = stepOrder.indexOf(s.jumpFrom);
-        return { time: s.start - 1, fromY, toY, label: s.jumpLabel };
-      });
+      .map((s) => ({
+        time: s.start - 1,
+        fromY: stepOrder.indexOf(s.jumpFrom),
+        toY: stepOrder.indexOf(s.step),
+        label: s.jumpLabel
+      }));
+
+    // 本步重试：同一步骤相邻两块之间的短自环标注
+    const localRetryMarkers = [];
+    for (let i = 0; i < runSpans.length - 1; i++) {
+      const a = runSpans[i];
+      const b = runSpans[i + 1];
+      if (a.localRetry && b.localRetryOf && a.step === b.step) {
+        localRetryMarkers.push({
+          y: stepOrder.indexOf(a.step),
+          t1: a.end,
+          t2: b.start,
+          label: "本步重试"
+        });
+      }
+    }
 
     function renderItem(params, api) {
       const categoryIndex = api.value(0);
       const start = api.coord([api.value(1), categoryIndex]);
       const end = api.coord([api.value(2), categoryIndex]);
-      const height = api.size([0, 1])[1] * 0.45;
+      const height = api.size([0, 1])[1] * 0.42;
       const rectShape = echarts.graphic.clipRectByRect(
         {
           x: start[0],
@@ -629,20 +665,24 @@
         textStyle: { color: "#e8eefc", fontSize: 12 },
         formatter(params) {
           const v = params.value;
-          const statusMap = { ok: "成功", reject: "驳回", fail: "失败", retry: "含重试" };
-          let html = `<strong>${params.name}</strong><br/>第 ${v[4]} 次进入<br/>时段：T+${v[1]} → T+${v[2]} 分（${v[3]} 分）<br/>状态：${statusMap[v[5]] || v[5]}`;
-          if (params.data.jumpLabel) html += `<br/><span style="color:#ffb09e">${params.data.jumpLabel}</span>`;
-          if (params.data.retries) html += `<br/>本段重试：${params.data.retries}`;
+          const statusMap = { ok: "成功", reject: "驳回", fail: "失败", retry: "本步重试前失败" };
+          let html = `<strong>${params.name}</strong><br/>第 ${v[4]} 轮进入<br/>时段：T+${v[1]} → T+${v[2]} 分（${v[3]} 分）<br/>状态：${statusMap[v[5]] || v[5]}`;
+          if (params.data.localRetry || params.data.localRetryOf) {
+            html += `<br/><span style="color:#7dd3fc">本步重试：用户在当前步骤自己再跑</span>`;
+          }
+          if (params.data.jumpLabel) {
+            html += `<br/><span style="color:#ffb09e">${params.data.jumpLabel}</span>`;
+          }
           return html;
         }
       },
-      grid: { left: 88, right: 28, top: 36, bottom: 48 },
+      grid: { left: 88, right: 28, top: 40, bottom: 48 },
       xAxis: {
         type: "value",
         name: "分钟（自启动）",
         nameTextStyle: { color: "#8b9bb8", fontSize: 11 },
         min: 0,
-        max: 105,
+        max: 110,
         axisLabel: { color: "#8b9bb8", formatter: (v) => `T+${v}` },
         axisLine: { lineStyle: { color: "rgba(255,255,255,0.12)" } },
         splitLine: { lineStyle: { color: "rgba(255,255,255,0.06)" } }
@@ -662,22 +702,18 @@
         encode: { x: [1, 2], y: 0 },
         data: customData,
         z: 2
-      }, {
-        // invisible points to help draw jump arrows via graphic after render
-        type: "scatter",
-        data: [],
-        silent: true
       }]
     });
 
-    function drawJumpArrows() {
+    function drawAnnotations() {
       const els = [];
+
       jumpMarkers.forEach((jm) => {
         const from = timelineChart.convertToPixel({ xAxisIndex: 0, yAxisIndex: 0 }, [jm.time, jm.fromY]);
         const to = timelineChart.convertToPixel({ xAxisIndex: 0, yAxisIndex: 0 }, [jm.time, jm.toY]);
         if (!from || !to) return;
         const midY = (from[1] + to[1]) / 2;
-        const bulge = -36;
+        const bulge = -38;
         els.push({
           type: "bezierCurve",
           shape: {
@@ -695,7 +731,6 @@
           },
           z: 10
         });
-        // arrow head
         const dir = to[1] > from[1] ? 1 : -1;
         els.push({
           type: "polygon",
@@ -725,15 +760,55 @@
           z: 12
         });
       });
+
+      localRetryMarkers.forEach((m) => {
+        const p1 = timelineChart.convertToPixel({ xAxisIndex: 0, yAxisIndex: 0 }, [m.t1, m.y]);
+        const p2 = timelineChart.convertToPixel({ xAxisIndex: 0, yAxisIndex: 0 }, [m.t2, m.y]);
+        if (!p1 || !p2) return;
+        const midX = (p1[0] + p2[0]) / 2;
+        const top = p1[1] - 22;
+        els.push({
+          type: "bezierCurve",
+          shape: {
+            x1: p1[0], y1: p1[1] - 8,
+            cpx1: midX, cpy1: top,
+            cpx2: midX, cpy2: top,
+            x2: p2[0], y2: p2[1] - 8
+          },
+          style: {
+            stroke: "#38bdf8",
+            lineWidth: 1.8,
+            shadowBlur: 6,
+            shadowColor: "rgba(56,189,248,0.4)"
+          },
+          z: 10
+        });
+        els.push({
+          type: "text",
+          style: {
+            x: midX,
+            y: top - 8,
+            text: m.label,
+            fill: "#7dd3fc",
+            font: "11px sans-serif",
+            align: "center",
+            verticalAlign: "bottom",
+            textShadowColor: "rgba(0,0,0,0.55)",
+            textShadowBlur: 3
+          },
+          z: 12
+        });
+      });
+
       timelineChart.setOption({ graphic: els });
     }
 
-    setTimeout(drawJumpArrows, 60);
+    setTimeout(drawAnnotations, 80);
 
     window.addEventListener("resize", () => {
       graphChart.resize();
       timelineChart.resize();
-      setTimeout(drawJumpArrows, 60);
+      setTimeout(drawAnnotations, 80);
     });
   </script>
 </body>
