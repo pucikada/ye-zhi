@@ -70,10 +70,10 @@ footer{margin-top:16px;color:var(--muted);font-size:12px;display:flex;flex-wrap:
 footer code{font-family:var(--mono);background:rgba(255,255,255,.04);padding:2px 6px;border-radius:6px;color:#cbd5e1}
 
 /* ===== View 1: Cards ===== */
-.cards-wrap{position:relative;min-width:1080px;padding:78px 8px 24px}
+.cards-wrap{position:relative;min-width:1120px;padding:78px 8px 24px}
 .cards-row{display:flex;align-items:stretch;gap:0;position:relative;z-index:2}
 .step-card{
-  width:156px;flex:0 0 156px;background:linear-gradient(180deg,#1d2a48,#162038);
+  width:162px;flex:0 0 162px;background:linear-gradient(180deg,#1d2a48,#162038);
   border:1px solid rgba(148,163,184,.22);border-radius:14px;padding:14px 12px 12px;position:relative;
   box-shadow:0 10px 28px rgba(0,0,0,.22);
 }
@@ -95,11 +95,11 @@ footer code{font-family:var(--mono);background:rgba(255,255,255,.04);padding:2px
 .jump-svg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:1;overflow:visible}
 
 /* ===== View 2: Railway ===== */
-.rail-wrap{position:relative;min-width:1080px;padding:40px 10px 30px}
+.rail-wrap{position:relative;min-width:1120px;padding:40px 10px 30px}
 .rail-track{position:absolute;left:40px;right:40px;top:118px;height:10px;border-radius:99px;background:linear-gradient(90deg,rgba(56,189,248,.25),rgba(129,140,248,.35),rgba(52,211,153,.25));border:1px solid rgba(148,163,184,.2);z-index:0}
 .rail-return{position:absolute;left:40px;right:40px;top:42px;height:54px;z-index:0;pointer-events:none}
 .rail-stations{display:flex;justify-content:space-between;position:relative;z-index:2;padding:0 10px}
-.station{width:150px;text-align:center}
+.station{width:158px;text-align:center}
 .station .dot{width:18px;height:18px;margin:0 auto 10px;border-radius:50%;background:#0f172a;border:3px solid var(--fwd);box-shadow:0 0 0 6px rgba(56,189,248,.12);position:relative}
 .station.appr .dot{border-color:var(--appr);box-shadow:0 0 0 6px rgba(196,181,253,.15)}
 .station .loop{
@@ -189,7 +189,7 @@ footer code{font-family:var(--mono);background:rgba(255,255,255,.04);padding:2px
     <div class="eyebrow"><i></i>同一份示例数据 · 几种画法对比</div>
     <h1>任务运行流可视化方案</h1>
     <p class="sub">
-      数据固定：提交申请 → 资料校验 → 人工审批 → 系统处理 → 质检 → 归档。
+      数据固定：需求澄清 → 需求设计 → 代码开发 → 代码检视 → 界面验收 → 代码提交。
       青色表示<strong style="color:#67e8f9">本步重试</strong>（用户在当前步骤自己再跑），
       玫红虚线/弧表示<strong style="color:#fda4af">跨步跳回</strong>（失败回到更早步骤）。二者互不计入。
     </p>
@@ -306,40 +306,39 @@ footer code{font-family:var(--mono);background:rgba(255,255,255,.04);padding:2px
 
 <script>
 const steps = [
-  { id:"s1", name:"提交申请", durationMin:2.4, localRetries:3,  approval:false, exitTriggers:128, jumpTo:null },
-  { id:"s2", name:"资料校验", durationMin:6.8, localRetries:31, approval:false, exitTriggers:141, jumpTo:null },
-  { id:"s3", name:"人工审批", durationMin:18.0, localRetries:0,  approval:true,  exitTriggers:120, jumpTo:"提交申请" },
-  { id:"s4", name:"系统处理", durationMin:9.5, localRetries:22, approval:false, exitTriggers:103, jumpTo:null },
-  { id:"s5", name:"质检",     durationMin:4.2, localRetries:2,  approval:false, exitTriggers:112, jumpTo:"资料校验" },
-  { id:"s6", name:"归档",     durationMin:1.1, localRetries:0,  approval:false, exitTriggers:97,  jumpTo:null }
+  { id:"s1", name:"需求澄清", durationMin:12.0, localRetries:2,  approval:true,  exitTriggers:128, jumpTo:null },
+  { id:"s2", name:"需求设计", durationMin:28.0, localRetries:4,  approval:true,  exitTriggers:126, jumpTo:null },
+  { id:"s3", name:"代码开发", durationMin:96.0, localRetries:28, approval:false, exitTriggers:142, jumpTo:null },
+  { id:"s4", name:"代码检视", durationMin:18.0, localRetries:16, approval:false, exitTriggers:118, jumpTo:"代码开发" },
+  { id:"s5", name:"界面验收", durationMin:24.0, localRetries:9,  approval:true,  exitTriggers:110, jumpTo:"需求设计" },
+  { id:"s6", name:"代码提交", durationMin:3.5,  localRetries:0,  approval:false, exitTriggers:97,  jumpTo:null }
 ];
 const forwardEdges = [
   { from:"s1", to:"s2", count:128 },
-  { from:"s2", to:"s3", count:129 },
-  { from:"s3", to:"s4", count:101 },
-  { from:"s4", to:"s5", count:100 },
+  { from:"s2", to:"s3", count:122 },
+  { from:"s3", to:"s4", count:130 },
+  { from:"s4", to:"s5", count:108 },
   { from:"s5", to:"s6", count:97 }
 ];
 const jumpEdges = [
-  { from:"s3", to:"s1", count:19, label:"审批驳回" },
-  { from:"s5", to:"s2", count:12, label:"质检失败" }
+  { from:"s4", to:"s3", count:18, label:"检视不通过" },
+  { from:"s5", to:"s2", count:11, label:"验收不通过" }
 ];
 const runSpans = [
-  { step:"提交申请", start:0, end:3, pass:1, status:"ok" },
-  { step:"资料校验", start:3, end:8, pass:1, status:"retry", localRetry:true },
-  { step:"资料校验", start:8.5, end:14, pass:1, status:"ok", localRetryOf:true, label:"本步重试" },
-  { step:"人工审批", start:14, end:30, pass:1, status:"reject" },
-  { step:"提交申请", start:32, end:36, pass:2, status:"ok", jumpFrom:"人工审批", jumpLabel:"跨步跳回：审批驳回 → 提交申请" },
-  { step:"资料校验", start:36, end:42, pass:2, status:"ok" },
-  { step:"人工审批", start:42, end:54, pass:2, status:"ok" },
-  { step:"系统处理", start:54, end:60, pass:2, status:"retry", localRetry:true },
-  { step:"系统处理", start:60.5, end:68, pass:2, status:"ok", localRetryOf:true, label:"本步重试" },
-  { step:"质检", start:68, end:74, pass:2, status:"fail" },
-  { step:"资料校验", start:76, end:83, pass:3, status:"ok", jumpFrom:"质检", jumpLabel:"跨步跳回：质检失败 → 资料校验" },
-  { step:"人工审批", start:83, end:90, pass:3, status:"ok" },
-  { step:"系统处理", start:90, end:98, pass:3, status:"ok" },
-  { step:"质检", start:98, end:102, pass:3, status:"ok" },
-  { step:"归档", start:102, end:104, pass:3, status:"ok" }
+  { step:"需求澄清", start:0, end:10, pass:1, status:"ok" },
+  { step:"需求设计", start:10, end:32, pass:1, status:"ok" },
+  { step:"代码开发", start:32, end:70, pass:1, status:"retry", localRetry:true },
+  { step:"代码开发", start:71, end:98, pass:1, status:"ok", localRetryOf:true, label:"本步重试" },
+  { step:"代码检视", start:98, end:112, pass:1, status:"fail" },
+  { step:"代码开发", start:114, end:140, pass:2, status:"ok", jumpFrom:"代码检视", jumpLabel:"跨步跳回：检视不通过 → 代码开发" },
+  { step:"代码检视", start:140, end:152, pass:2, status:"retry", localRetry:true },
+  { step:"代码检视", start:153, end:164, pass:2, status:"ok", localRetryOf:true, label:"本步重试" },
+  { step:"界面验收", start:164, end:186, pass:2, status:"reject" },
+  { step:"需求设计", start:188, end:208, pass:3, status:"ok", jumpFrom:"界面验收", jumpLabel:"跨步跳回：验收不通过 → 需求设计" },
+  { step:"代码开发", start:208, end:236, pass:3, status:"ok" },
+  { step:"代码检视", start:236, end:248, pass:3, status:"ok" },
+  { step:"界面验收", start:248, end:268, pass:3, status:"ok" },
+  { step:"代码提交", start:268, end:272, pass:3, status:"ok" }
 ];
 
 const maxDur = Math.max(...steps.map(s => s.durationMin));
@@ -348,10 +347,10 @@ const jumpTotal = jumpEdges.reduce((a,e)=>a+e.count,0);
 
 function kpiHTML(){
   return `
-    <div class="item"><div class="k">中位端到端耗时</div><div class="v" style="color:#7dd3fc">46<span style="font-size:13px"> 分</span></div><div class="d">P95 = 3.2 小时（含审批等待）</div></div>
-    <div class="item"><div class="k">本步重试合计</div><div class="v" style="color:#67e8f9">${localRetryTotal}</div><div class="d">资料校验 31 · 系统处理 22 · 其他 5</div></div>
-    <div class="item"><div class="k">跨步跳回合计</div><div class="v" style="color:#fda4af">${jumpTotal}</div><div class="d">审批驳回→提交 19 · 质检失败→校验 12</div></div>
-    <div class="item"><div class="k">人工审批涉及</div><div class="v" style="color:#c4b5fd">1<span style="font-size:13px"> 步</span></div><div class="d">通过 101 · 驳回 19 · 中位等待 18 分</div></div>`;
+    <div class="item"><div class="k">中位端到端耗时</div><div class="v" style="color:#7dd3fc">6.8<span style="font-size:13px"> 时</span></div><div class="d">P95 = 18 小时（含澄清/设计/验收等待）</div></div>
+    <div class="item"><div class="k">本步重试合计</div><div class="v" style="color:#67e8f9">${localRetryTotal}</div><div class="d">代码开发 28 · 代码检视 16 · 界面验收 9 · 其他 6</div></div>
+    <div class="item"><div class="k">跨步跳回合计</div><div class="v" style="color:#fda4af">${jumpTotal}</div><div class="d">检视不通过→开发 18 · 验收不通过→设计 11</div></div>
+    <div class="item"><div class="k">人工审批涉及</div><div class="v" style="color:#c4b5fd">3<span style="font-size:13px"> 步</span></div><div class="d">澄清 / 设计 / 验收 · 中位等待 35 分</div></div>`;
 }
 ["kpi-cards","kpi-rail","kpi-journey"].forEach(id => { document.getElementById(id).innerHTML = kpiHTML(); });
 
@@ -525,9 +524,9 @@ function drawRailReturns(){
 (function buildTraceSide(){
   document.getElementById("trace-side").innerHTML = `
     <div class="item"><div class="k">示例单</div><div class="v" style="font-size:15px">#A-2026-1106-017</div></div>
-    <div class="item"><div class="k">本步重试（本单）</div><div class="v" style="color:#67e8f9">2</div><div class="k" style="margin-top:4px">资料校验、系统处理各 1 次</div></div>
-    <div class="item"><div class="k">跨步跳回（本单）</div><div class="v" style="color:#fda4af">2</div><div class="k" style="margin-top:4px">审批驳回、质检失败</div></div>
-    <div class="item"><div class="k">总耗时</div><div class="v">104<span style="font-size:13px"> 分</span></div></div>
+    <div class="item"><div class="k">本步重试（本单）</div><div class="v" style="color:#67e8f9">2</div><div class="k" style="margin-top:4px">代码开发、代码检视各 1 次</div></div>
+    <div class="item"><div class="k">跨步跳回（本单）</div><div class="v" style="color:#fda4af">2</div><div class="k" style="margin-top:4px">检视不通过、验收不通过</div></div>
+    <div class="item"><div class="k">总耗时</div><div class="v">272<span style="font-size:13px"> 分</span></div></div>
     <div class="item"><div class="k">聚合窗口</div><div style="margin-top:8px;font-size:12px;color:var(--muted);line-height:1.55">
       本步重试合计 <b style="color:#67e8f9">${localRetryTotal}</b><br/>
       跨步跳回合计 <b style="color:#fda4af">${jumpTotal}</b><br/>
@@ -538,7 +537,7 @@ function drawRailReturns(){
 (function buildGantt(){
   const host = document.getElementById("gantt");
   const order = steps.map(s => s.name);
-  const maxT = 110;
+  const maxT = 280;
   const byStep = Object.fromEntries(order.map(n => [n, []]));
   runSpans.forEach(s => byStep[s.step].push(s));
 
@@ -559,7 +558,7 @@ function drawRailReturns(){
   });
   html += `<svg class="gantt-svg" id="gantt-svg"></svg></div>`;
   html += `<div class="gantt-axis"><div></div><div class="ticks">`;
-  for (let t=0; t<=100; t+=20) {
+  for (let t=0; t<=280; t+=40) {
     html += `<span style="left:${(t/maxT*100).toFixed(2)}%">T+${t}</span>`;
   }
   html += `</div></div>`;
@@ -570,7 +569,7 @@ function drawGanttOverlays(){
   const body = document.getElementById("gantt-body");
   const svg = document.getElementById("gantt-svg");
   if (!body || !svg) return;
-  const maxT = 110;
+  const maxT = 280;
   const br = body.getBoundingClientRect();
   const W = body.clientWidth, H = body.clientHeight;
   svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
@@ -701,8 +700,8 @@ function drawGanttOverlays(){
         <div><div class="k">准出（聚合）</div><div class="v">${stepMeta ? stepMeta.exitTriggers : "—"}</div></div>
       </div>
       ${sp.localRetry ? `<div class="j-note retry">本段未通过，用户将在同一步骤发起本步重试（聚合本步重试 ${stepMeta.localRetries} 次）。</div>` : ""}
-      ${sp.status==="reject" ? `<div class="j-note jump">审批驳回，将跨步跳回「提交申请」（聚合跳回 19 次）。</div>` : ""}
-      ${sp.status==="fail" ? `<div class="j-note jump">质检失败，将跨步跳回「资料校验」（聚合跳回 12 次）。</div>` : ""}
+      ${sp.status==="reject" ? `<div class="j-note jump">界面验收不通过，将跨步跳回「需求设计」（聚合跳回 11 次）。</div>` : ""}
+      ${sp.status==="fail" ? `<div class="j-note jump">代码检视不通过，将跨步跳回「代码开发」（聚合跳回 18 次）。</div>` : ""}
     </article>`;
   });
   host.innerHTML = html;
