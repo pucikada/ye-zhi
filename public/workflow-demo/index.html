@@ -190,8 +190,8 @@ footer code{font-family:var(--mono);background:rgba(255,255,255,.04);padding:2px
       <strong style="color:#6ee7b7">自动准出</strong>：满足 hook 校验直接过；
       <strong style="color:#fcd34d">hook 重试</strong>：校验失败后按上限 x 次自动再跑（不是用户主动重试）；
       <strong style="color:#ddd6fe">人工准出</strong>：x 次仍失败后人工介入。<br/>
-      <strong style="color:#67e8f9">用户本步重试</strong>：用户对当前步骤主动再跑，通常附带额外提示词；
-      <strong style="color:#fda4af">跨步跳回</strong>：失败回到更早步骤。三者互不混用。
+      <strong style="color:#67e8f9">用户本步重试</strong>：须展示重试次数，且每次重试对应一条提示词；
+      <strong style="color:#fda4af">跨步跳回</strong>：失败回到更早步骤。三者互不混用。本示例中每步<strong style="color:#6ee7b7">自动准出=1</strong>、<strong style="color:#ddd6fe">人工准出=1</strong>。
     </p>
     <div class="legend-bar">
       <span><i class="lg fwd"></i>正常前进</span>
@@ -294,42 +294,48 @@ footer code{font-family:var(--mono);background:rgba(255,255,255,.04);padding:2px
 const steps = [
   {
     id:"s1", name:"需求澄清", durationMin:12.0,
-    autoExit:96, hookRetries:18, hookLimit:2, manualExit:14,
+    autoExit:1, hookRetries:2, hookLimit:2, manualExit:1,
     userRetries:2,
     prompts:["补充业务边界与非功能约束","明确验收口径与优先级排序"],
     jumpTo:null
   },
   {
     id:"s2", name:"需求设计", durationMin:28.0,
-    autoExit:88, hookRetries:22, hookLimit:2, manualExit:16,
+    autoExit:1, hookRetries:2, hookLimit:2, manualExit:1,
     userRetries:3,
     prompts:["按澄清结果重画交互与数据模型","补齐异常分支与权限矩阵","对齐接口契约与字段枚举"],
     jumpTo:null
   },
   {
     id:"s3", name:"代码开发", durationMin:96.0,
-    autoExit:102, hookRetries:48, hookLimit:3, manualExit:6,
+    autoExit:1, hookRetries:3, hookLimit:3, manualExit:1,
     userRetries:5,
-    prompts:["按检视意见修复空指针与边界条件","补单测覆盖失败路径","按新设计改写状态机实现"],
+    prompts:[
+      "按检视意见修复空指针与边界条件",
+      "补单测覆盖失败路径",
+      "按新设计改写状态机实现",
+      "收敛日志与错误码映射",
+      "补齐并发场景锁策略"
+    ],
     jumpTo:null
   },
   {
     id:"s4", name:"代码检视", durationMin:18.0,
-    autoExit:84, hookRetries:26, hookLimit:2, manualExit:8,
+    autoExit:1, hookRetries:2, hookLimit:2, manualExit:1,
     userRetries:2,
     prompts:["聚焦安全与并发评审清单","复查上次未闭合的 TODO"],
     jumpTo:"代码开发"
   },
   {
     id:"s5", name:"界面验收", durationMin:24.0,
-    autoExit:72, hookRetries:20, hookLimit:2, manualExit:18,
+    autoExit:1, hookRetries:2, hookLimit:2, manualExit:1,
     userRetries:3,
     prompts:["对照验收用例复核空态与加载态","补充移动端断点截图说明","修正文案与无障碍焦点顺序"],
     jumpTo:"需求设计"
   },
   {
     id:"s6", name:"代码提交", durationMin:3.5,
-    autoExit:95, hookRetries:4, hookLimit:1, manualExit:2,
+    autoExit:1, hookRetries:1, hookLimit:1, manualExit:1,
     userRetries:0,
     prompts:[],
     jumpTo:null
@@ -376,8 +382,8 @@ const manualish = (s) => s.manualExit >= 10;
 function kpiHTML(){
   return `
     <div class="item"><div class="k">中位端到端耗时</div><div class="v" style="color:#7dd3fc">6.8<span style="font-size:13px"> 时</span></div><div class="d">P95 = 18 小时（含人工准出等待）</div></div>
-    <div class="item"><div class="k">自动准出 / hook重试 / 人工准出</div><div class="v" style="font-size:16px;margin-top:10px"><span style="color:#6ee7b7">${sum('autoExit')}</span> <span style="color:var(--muted)">/</span> <span style="color:#fcd34d">${sum('hookRetries')}</span> <span style="color:var(--muted)">/</span> <span style="color:#ddd6fe">${sum('manualExit')}</span></div><div class="d">hook 失败后自动重试；满 x 次仍失败则人工准出</div></div>
-    <div class="item"><div class="k">用户本步重试合计</div><div class="v" style="color:#67e8f9">${sum('userRetries')}</div><div class="d">开发 5 · 设计/验收 3 · 含提示词</div></div>
+    <div class="item"><div class="k">自动准出 / 人工准出（每步）</div><div class="v" style="font-size:18px;margin-top:10px"><span style="color:#6ee7b7">1</span> <span style="color:var(--muted)">/</span> <span style="color:#ddd6fe">1</span></div><div class="d">每步固定展示：自动准出 1 · 人工准出 1；hook 重试为辅助</div></div>
+    <div class="item"><div class="k">用户本步重试合计</div><div class="v" style="color:#67e8f9">${sum('userRetries')}</div><div class="d">重点：次数与每次提示词一一对应</div></div>
     <div class="item"><div class="k">跨步跳回合计</div><div class="v" style="color:#fda4af">${jumpTotal}</div><div class="d">检视→开发 18 · 验收→设计 11</div></div>`;
 }
 ["kpi-cards","kpi-rail","kpi-journey"].forEach(id => document.getElementById(id).innerHTML = kpiHTML());
@@ -410,12 +416,12 @@ document.getElementById("tabs").addEventListener("click", (e) => {
         <div><div class="k">人工准出</div><div class="v manual">${s.manualExit}</div></div>
       </div>
       <div class="badges">
-        ${s.userRetries ? `<span class="badge retry">用户重试 ${s.userRetries} · 点看提示词</span>` : `<span class="badge exit">无用户重试</span>`}
+        ${s.userRetries ? `<span class="badge retry">用户重试 ${s.userRetries} 次 · 点看每次提示词</span>` : `<span class="badge exit">无用户重试</span>`}
         ${s.jumpTo ? `<span class="badge" style="color:#fecdd3;border-color:rgba(251,113,133,.35);background:rgba(251,113,133,.1)">可跳回</span>` : ""}
       </div>
       <div class="prompt-box">
         <div class="ph">用户本步重试提示词（示例）</div>
-        ${s.prompts.length ? `<ol>${s.prompts.map(p=>`<li>${p}</li>`).join("")}</ol>` : "（本步无用户重试）"}
+        ${s.prompts.length ? `<ol>${s.prompts.map((p,i)=>`<li><b>第 ${i+1} 次</b>：${p}</li>`).join("")}</ol>` : "（本步无用户重试）"}
       </div>`;
     card.addEventListener("click", () => {
       document.querySelectorAll(".step-card").forEach(c => c.classList.toggle("open", c===card ? !card.classList.contains("open") : false));
@@ -441,7 +447,7 @@ document.getElementById("tabs").addEventListener("click", (e) => {
     <td class="num" style="color:#fcd34d">${s.hookRetries}（x=${s.hookLimit}）</td>
     <td class="num" style="color:#ddd6fe">${s.manualExit}</td>
     <td class="num" style="color:#67e8f9">${s.userRetries}</td>
-    <td>${s.prompts.length ? `<ol class="prompts">${s.prompts.map(p=>`<li>${p}</li>`).join("")}</ol>` : "—"}</td>
+    <td>${s.prompts.length ? `<ol class="prompts">${s.prompts.map((p,i)=>`<li><b>第${i+1}次</b> ${p}</li>`).join("")}</ol>` : "—"}</td>
     <td style="color:#fda4af">${s.jumpTo || "—"}</td>
   </tr>`).join("") + `</tbody>`;
 })();
@@ -489,8 +495,8 @@ requestAnimationFrame(drawCardJumps);
           hook <b style="color:#fcd34d">${s.hookRetries}/${s.hookLimit}</b> ·
           人工 <b style="color:#ddd6fe">${s.manualExit}</b>
           ${s.jumpTo ? `<br/><span style="color:#fda4af">可跳回 → ${s.jumpTo}</span>` : ""}
-          ${s.userRetries ? `<div class="prompt-mini">查看 ${s.userRetries} 条提示词 ▾</div>
-            <div class="prompt-list"><ol style="margin:0;padding-left:16px">${s.prompts.map(p=>`<li>${p}</li>`).join("")}</ol></div>` : ""}
+          ${s.userRetries ? `<div class="prompt-mini">用户重试 ${s.userRetries} 次 · 查看提示词 ▾</div>
+            <div class="prompt-list"><ol style="margin:0;padding-left:16px">${s.prompts.map((p,i)=>`<li><b>第${i+1}次</b> ${p}</li>`).join("")}</ol></div>` : ""}
         </div>
       </div>`;
     if (s.userRetries) {
@@ -542,10 +548,10 @@ function drawRailReturns(){
 (function buildTraceSide(){
   document.getElementById("trace-side").innerHTML = `
     <div class="item"><div class="k">示例单</div><div class="v" style="font-size:15px">#B-2026-1107-042</div></div>
-    <div class="item"><div class="k">准出结构（聚合）</div><div style="margin-top:8px;font-size:12px;color:var(--muted);line-height:1.6">
-      自动准出 <b style="color:#6ee7b7">${sum('autoExit')}</b><br/>
-      hook 重试 <b style="color:#fcd34d">${sum('hookRetries')}</b><br/>
-      人工准出 <b style="color:#ddd6fe">${sum('manualExit')}</b>
+    <div class="item"><div class="k">准出结构（每步）</div><div style="margin-top:8px;font-size:12px;color:var(--muted);line-height:1.6">
+      自动准出 <b style="color:#6ee7b7">1</b><br/>
+      人工准出 <b style="color:#ddd6fe">1</b><br/>
+      hook 重试为辅助（见各步上限 x）
     </div></div>
     <div class="item"><div class="k">用户本步重试（本单）</div><div class="v" style="color:#67e8f9">3</div><div class="k" style="margin-top:4px">设计 / 开发 / 验收各带提示词</div></div>
     <div class="item"><div class="k">跨步跳回（本单）</div><div class="v" style="color:#fda4af">2</div><div class="k" style="margin-top:4px">检视不通过、验收不通过</div></div>
@@ -665,7 +671,7 @@ function drawGanttOverlays(){
       <div class="row"><span>人工准出</span><b style="color:#ddd6fe">${s.manualExit}</b></div>
       <div class="row"><span>用户本步重试</span><b style="color:#67e8f9">${s.userRetries}</b></div>
       <div class="row"><span>跳回至</span><b style="color:#fda4af">${s.jumpTo||"—"}</b></div>
-      ${s.prompts.length ? `<div class="prompts"><ol>${s.prompts.map(p=>`<li>${p}</li>`).join("")}</ol></div>` : ""}
+      ${s.prompts.length ? `<div class="prompts">用户重试 ${s.userRetries} 次：<ol>${s.prompts.map((p,i)=>`<li><b>第${i+1}次</b> ${p}</li>`).join("")}</ol></div>` : ""}
     </div>`).join("");
 })();
 
@@ -695,7 +701,7 @@ function drawGanttOverlays(){
         <div><div class="k">自动 / hook / 人工</div><div class="v" style="font-size:12px"><span style="color:#6ee7b7">${stepMeta.autoExit}</span> / <span style="color:#fcd34d">${stepMeta.hookRetries}</span> / <span style="color:#ddd6fe">${stepMeta.manualExit}</span></div></div>
         <div><div class="k">用户重试（聚合）</div><div class="v" style="color:#67e8f9">${stepMeta.userRetries}</div></div>
       </div>
-      ${sp.prompt ? `<div class="j-note prompt">提示词：${sp.prompt}</div>` : ""}
+      ${sp.prompt ? `<div class="j-note prompt">用户本步重试提示词：${sp.prompt}</div>` : ""}
       ${sp.kind==="hookRetry" ? `<div class="j-note hook">本段为 hook 自动重试（上限 x=${stepMeta.hookLimit}），与用户带提示词重试不同。</div>` : ""}
       ${sp.status==="reject" ? `<div class="j-note jump">界面验收不通过，将跨步跳回「需求设计」（聚合 11 次）。</div>` : ""}
       ${sp.status==="fail" ? `<div class="j-note jump">代码检视不通过，将跨步跳回「代码开发」（聚合 18 次）。</div>` : ""}
