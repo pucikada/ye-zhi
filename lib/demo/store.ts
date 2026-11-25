@@ -4,6 +4,7 @@ import { create } from "zustand";
 
 import { restoreCanvasHistory, type CanvasSnap } from "./history";
 import { normalizeWorkspace } from "./persist";
+import { repairEmptySamples } from "./repair-samples";
 import { createSeed } from "./seed";
 import {
   acquireLock,
@@ -159,7 +160,7 @@ export const useDemo = create<DemoStore>((set, get) => {
       if (get().hydrated) return;
       const stored = readStored(KEY) ?? readStored(LEGACY_KEY);
       if (stored) {
-        set({ ...stored, hydrated: true, toast: "" });
+        set({ ...repairEmptySamples(stored, createSeed()), hydrated: true, toast: "" });
         return;
       }
       set({ ...createSeed(), hydrated: true, toast: "" });
