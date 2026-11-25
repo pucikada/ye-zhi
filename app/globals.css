@@ -134,6 +134,29 @@
   }
 }
 
+.yz-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(236, 234, 228, 0.35) transparent;
+}
+
+.yz-scroll-y {
+  scrollbar-gutter: stable;
+}
+
+.yz-scroll::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.yz-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.yz-scroll::-webkit-scrollbar-thumb {
+  background: rgba(236, 234, 228, 0.28);
+  border-radius: 99px;
+}
+
 .react-flow {
   --xy-background-color: #0c0d10;
   background: #0c0d10;

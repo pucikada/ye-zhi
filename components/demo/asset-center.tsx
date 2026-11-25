@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   AppWindow,
   Boxes,
@@ -12,6 +12,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
+import { onChipKey, onScrollKey } from "@/lib/demo/scroll-key";
 import { KIND_COLOR, KIND_LABEL, ROLES, type NodeKind } from "@/lib/demo/types";
 import { currentVersion } from "@/lib/demo/rules";
 import { useDemo } from "@/lib/demo/store";
@@ -37,6 +38,7 @@ export function AssetCenter({ onOpenCanvas }: { onOpenCanvas: () => void }) {
   const [kind, setKind] = useState<NodeKind | "all">("all");
   const [projectId, setProjectId] = useState("all");
   const [query, setQuery] = useState("");
+  const listRef = useRef<HTMLDivElement>(null);
 
   const readable = (project: string) =>
     (access[project] ?? []).includes(role) && !revoked.some((item) => item.roleId === role && item.projectId === project);
@@ -60,8 +62,13 @@ export function AssetCenter({ onOpenCanvas }: { onOpenCanvas: () => void }) {
     return map;
   }, [nodes, projectId]);
 
+  useEffect(() => {
+    listRef.current?.scrollTo({ top: 0 });
+  }, [kind, projectId, query]);
+
   return (
-    <div className="h-full overflow-auto p-4">
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="shrink-0 border-b border-white/8 px-4 py-4 sm:px-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h2 className="text-sm font-medium">资产中心</h2>
@@ -92,7 +99,12 @@ export function AssetCenter({ onOpenCanvas }: { onOpenCanvas: () => void }) {
           </select>
         </div>
       </div>
-      <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
+      <div
+        tabIndex={0}
+        aria-label="资产分类"
+        onKeyDown={onChipKey}
+        className="yz-scroll mt-3 flex gap-2 overflow-x-auto overflow-y-hidden pb-1 focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-2 focus-visible:outline-[#dff25a]/70"
+      >
         <FilterChip active={kind === "all"} label={`全部 ${nodes.length}`} onClick={() => setKind("all")} />
         {GROUPS.map((group) => (
           <FilterChip
@@ -103,6 +115,14 @@ export function AssetCenter({ onOpenCanvas }: { onOpenCanvas: () => void }) {
           />
         ))}
       </div>
+      </div>
+      <div
+        ref={listRef}
+        tabIndex={0}
+        aria-label="资产列表"
+        onKeyDown={onScrollKey}
+        className="yz-scroll yz-scroll-y min-h-0 flex-1 overflow-x-hidden overflow-y-auto px-4 py-4 focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-[-1px] focus-visible:outline-[#dff25a]/50 sm:px-6"
+      >
       {cards.length === 0 ? (
         <p className="mt-8 text-sm text-white/45">这一类还没有资产。回到画布生成或导入后会出现在这里。</p>
       ) : (
@@ -144,7 +164,7 @@ export function AssetCenter({ onOpenCanvas }: { onOpenCanvas: () => void }) {
                       ) : (
                         <p className="mt-2 flex-1 text-[12px] text-[#f3a0c0]">无权读取内容，也不能再生成。</p>
                       )}
-                      <p className="mt-2 text-[11px] text-white/40">
+                      <p className="mt-2 break-words text-[11px] text-white/40">
                         {project?.name}
                         {allowed && version ? ` · v${version.version} · ${version.origin === "mock-ai" ? "模拟" : version.origin === "import" ? "导入" : "手工"}` : ""}
                         {node.frozen ? " · 已冻结" : ""}
@@ -187,7 +207,8 @@ export function AssetCenter({ onOpenCanvas }: { onOpenCanvas: () => void }) {
           })}
         </div>
       )}
-      <p className="mt-4 text-[11px] text-white/30">当前角色 {ROLES.find((item) => item.id === role)?.name}。撤权后的资产不能引用。</p>
+      <p className="mt-4 pb-6 text-[11px] text-white/30">当前角色 {ROLES.find((item) => item.id === role)?.name}。撤权后的资产不能引用。</p>
+      </div>
     </div>
   );
 }
@@ -197,7 +218,7 @@ function FilterChip({ active, label, onClick }: { active: boolean; label: string
     <button
       type="button"
       onClick={onClick}
-      className={`shrink-0 rounded-full px-2.5 py-1 text-[12px] ${active ? "bg-[#dff25a] text-[#1a1c08]" : "bg-white/5 text-white/70"}`}
+      className={`shrink-0 rounded-full px-2.5 py-1 text-[12px] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#dff25a] ${active ? "bg-[#dff25a] text-[#1a1c08]" : "bg-white/5 text-white/70"}`}
     >
       {label}
     </button>
