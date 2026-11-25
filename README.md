@@ -1,8 +1,8 @@
 # 页织
 
-首页是四个场景的 Mock 演示：新活动页、换风格、跨项目引用、测试上线。顶栏标明演示模式。生成、作业、成员、提醒、权限、检查和测试统计都在浏览器里模拟，不调用真实 AI。
+首页是项目、画布和资产的工作空间。左侧可以打开示例画布，也可以新建空白画布。生成、检查和身份都在浏览器里模拟，没有接入模型或账号系统。
 
-权威产品说明：[docs/yezhi-product-spec.md](docs/yezhi-product-spec.md)。操作步骤和与正式产品的差距：[docs/demo-guide.md](docs/demo-guide.md)。
+权威产品说明：[docs/yezhi-product-spec.md](docs/yezhi-product-spec.md)。用法：[docs/demo-guide.md](docs/demo-guide.md)。
 
 ```bash
 pnpm install
@@ -10,7 +10,7 @@ pnpm dev
 pnpm test:rules
 ```
 
-打开 <http://localhost:3000>，用工具栏进入场景。右侧黄按钮和画布操作改的是同一份状态。「重置演示」清空本地记录。
+打开 <http://localhost:3000> 会进入项目首页。从卡片打开示例画布，或创建空白画布。画布里右键添加节点，选中后在节点下方写指令。点「返回首页」回到列表。辅助菜单里的「重置示例画布」只恢复预制内容。
 
 原先的六类节点画布代码仍在仓库里，当前首页不再进入它。
 

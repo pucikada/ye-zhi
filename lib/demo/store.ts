@@ -2,7 +2,8 @@
 
 import { create } from "zustand";
 
-import { SCENARIOS, createSeed } from "./seed";
+import { normalizeWorkspace } from "./persist";
+import { createSeed } from "./seed";
 import {
   acquireLock,
   addNode,
@@ -10,8 +11,12 @@ import {
   bumpVersion,
   cancelJob,
   comment,
+  canAccess,
   connect,
+  createCanvas,
+  createProject,
   createReference,
+  deleteCanvas,
   deleteEdge,
   deleteNode,
   dismissStopped,
@@ -23,8 +28,10 @@ import {
   releaseLock,
   remind,
   removeItem,
+  renameCanvas,
   renameItem,
   renameNode,
+  resetSamples,
   resolveIntent,
   restoreAccess,
   retryStopped,
@@ -41,14 +48,19 @@ import {
 } from "./rules";
 import type { DemoState, NodeKind, Outcome, RoleId } from "./types";
 
-const KEY = "yezhi.demo.v1";
+const KEY = "yezhi.workspace.v1";
+const LEGACY_KEY = "yezhi.demo.v1";
 
 type DemoStore = DemoState & {
   hydrated: boolean;
   toast: string;
   hydrate: () => void;
-  reset: () => void;
-  openScenario: (canvasId: string, role: RoleId) => void;
+  resetExamples: () => void;
+  openCanvas: (canvasId: string) => void;
+  createProject: (name: string) => void;
+  createCanvas: (projectId: string, name: string) => void;
+  renameCanvas: (canvasId: string, name: string) => void;
+  deleteCanvas: (canvasId: string) => void;
   run: (outcome: Outcome) => void;
   add: (kind: NodeKind, position: { x: number; y: number }) => void;
   move: (id: string, position: { x: number; y: number }) => void;
@@ -81,7 +93,8 @@ type DemoStore = DemoState & {
   spec: (version: string, text: string) => void;
   revoke: (roleId: RoleId, projectId: string) => void;
   restore: (roleId: RoleId, projectId: string) => void;
-  compare: (nodeId: string) => void;
+    compare: (nodeId: string) => void;
+    focus: (nodeId: string) => void;
 };
 
 const timers = new Map<string, ReturnType<typeof setTimeout>>();
@@ -121,32 +134,50 @@ export const useDemo = create<DemoStore>((set, get) => {
     toast: "",
     hydrate: () => {
       if (get().hydrated) return;
-      try {
-        const raw = localStorage.getItem(KEY);
-        if (raw) {
-          const parsed = JSON.parse(raw) as DemoState;
-          if (parsed?.nodes && parsed.canvases) {
-            set({ ...parsed, hydrated: true, toast: "" });
-            return;
-          }
-        }
-      } catch {
-        /* use seed */
+      const stored = readStored(KEY) ?? readStored(LEGACY_KEY);
+      if (stored) {
+        set({ ...stored, hydrated: true, toast: "" });
+        return;
       }
       set({ ...createSeed(), hydrated: true, toast: "" });
     },
-    reset: () => {
+    resetExamples: () => {
       for (const timer of timers.values()) clearTimeout(timer);
       timers.clear();
-      localStorage.removeItem(KEY);
-      set({ ...createSeed(), hydrated: true, toast: "演示已重置" });
+      const current = get();
+      set({ ...resetSamples(current, createSeed()), hydrated: true, toast: "示例画布已恢复，你新建的项目和画布还在" });
     },
-    openScenario: (canvasId, role) => set({ ...setCanvas(setRole(get(), role), canvasId), toast: "" }),
+    openCanvas: (canvasId) => {
+      const current = get();
+      const canvas = current.canvases.find((item) => item.id === canvasId);
+      if (!canvas) return;
+      if (!canAccess(current, current.activeRole, canvas.projectId)) {
+        set({ toast: "你不能打开这个项目" });
+        return;
+      }
+      set({ ...setCanvas(current, canvasId), toast: "" });
+    },
+    createProject: (name) => run(createProject(get(), name)),
+    createCanvas: (projectId, name) => run(createCanvas(get(), projectId, name)),
+    renameCanvas: (canvasId, name) => run(renameCanvas(get(), canvasId, name)),
+    deleteCanvas: (canvasId) => run(deleteCanvas(get(), canvasId)),
     run,
     add: (kind, position) => run(addNode(get(), kind, position)),
     move: (id, position) => set(moveNode(get(), id, position)),
     select: (id) => set(selectNode(get(), id)),
-    chooseRole: (role) => set(setRole(get(), role)),
+    chooseRole: (role) => {
+      const next = setRole(get(), role);
+      const canvas = next.canvases.find((item) => item.id === next.activeCanvasId);
+      if (canvas && !canAccess(next, role, canvas.projectId)) {
+        const fallback = next.canvases.find((item) => canAccess(next, role, item.projectId));
+        set({
+          ...(fallback ? setCanvas(next, fallback.id) : next),
+          toast: "已切换身份。原来的画布不在这个身份能打开的项目里。",
+        });
+        return;
+      }
+      set({ ...next, toast: "" });
+    },
     link: (source, target, itemId) => run(connect(get(), { source, target, itemId })),
     unlink: (edgeId) => run(deleteEdge(get(), edgeId)),
     instruct: (nodeId, text) => run(submitInstruction(get(), nodeId, text)),
@@ -185,51 +216,80 @@ export const useDemo = create<DemoStore>((set, get) => {
     revoke: (roleId, projectId) => run(revokeAccess(get(), roleId, projectId)),
     restore: (roleId, projectId) => run(restoreAccess(get(), roleId, projectId)),
     compare: (nodeId) => set(toggleCompare(get(), nodeId)),
+    focus: (nodeId) => {
+      const current = get();
+      const node = current.nodes.find((item) => item.id === nodeId);
+      if (!node) return;
+      if (!canAccess(current, current.activeRole, node.projectId)) {
+        set({ toast: "无权访问这个资产" });
+        return;
+      }
+      set({ ...setCanvas(current, node.canvasId), selectedNodeId: node.id, toast: "" });
+    },
   };
 });
+
+function workspaceSnapshot(state: DemoStore): DemoState {
+  return {
+    seq: state.seq,
+    specVersion: state.specVersion,
+    specText: state.specText,
+    projects: state.projects,
+    canvases: state.canvases,
+    nodes: state.nodes,
+    edges: state.edges,
+    comments: state.comments,
+    reminders: state.reminders,
+    access: state.access,
+    revoked: state.revoked,
+    activeRole: state.activeRole,
+    activeCanvasId: state.activeCanvasId,
+    selectedNodeId: state.selectedNodeId,
+    intentAsk: state.intentAsk,
+    compareIds: state.compareIds,
+    testResults: state.testResults,
+  };
+}
+
+function writeWorkspace(state: DemoStore) {
+  if (!state.hydrated || typeof localStorage === "undefined") return;
+  localStorage.setItem(KEY, JSON.stringify(workspaceSnapshot(state)));
+}
 
 if (typeof window !== "undefined") {
   let saveTimer: ReturnType<typeof setTimeout> | null = null;
   useDemo.subscribe((state, previous) => {
     if (!state.hydrated) return;
-    if (state.nodes === previous.nodes && state.edges === previous.edges && state.toast === previous.toast) {
-      const same =
-        state.reminders === previous.reminders &&
-        state.comments === previous.comments &&
-        state.activeRole === previous.activeRole &&
-        state.specVersion === previous.specVersion &&
-        state.revoked === previous.revoked &&
-        state.testResults === previous.testResults;
-      if (same) return;
+    if (
+      state.nodes === previous.nodes &&
+      state.edges === previous.edges &&
+      state.projects === previous.projects &&
+      state.canvases === previous.canvases &&
+      state.activeCanvasId === previous.activeCanvasId &&
+      state.selectedNodeId === previous.selectedNodeId &&
+      state.activeRole === previous.activeRole &&
+      state.specVersion === previous.specVersion &&
+      state.specText === previous.specText &&
+      state.reminders === previous.reminders &&
+      state.comments === previous.comments &&
+      state.revoked === previous.revoked &&
+      state.testResults === previous.testResults &&
+      state.access === previous.access
+    ) {
+      return;
     }
     if (saveTimer) clearTimeout(saveTimer);
-    saveTimer = setTimeout(() => {
-      const current = useDemo.getState();
-      const { hydrated: _hydrated, toast: _toast, ...data } = current;
-      void _hydrated;
-      void _toast;
-      const persist: DemoState = {
-        seq: data.seq,
-        specVersion: data.specVersion,
-        specText: data.specText,
-        projects: data.projects,
-        canvases: data.canvases,
-        nodes: data.nodes,
-        edges: data.edges,
-        comments: data.comments,
-        reminders: data.reminders,
-        access: data.access,
-        revoked: data.revoked,
-        activeRole: data.activeRole,
-        activeCanvasId: data.activeCanvasId,
-        selectedNodeId: data.selectedNodeId,
-        intentAsk: data.intentAsk,
-        compareIds: data.compareIds,
-        testResults: data.testResults,
-      };
-      localStorage.setItem(KEY, JSON.stringify(persist));
-    }, 200);
+    saveTimer = setTimeout(() => writeWorkspace(useDemo.getState()), 400);
   });
+  window.addEventListener("pagehide", () => writeWorkspace(useDemo.getState()));
 }
 
-export { SCENARIOS };
+function readStored(key: string): DemoState | null {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return null;
+    return normalizeWorkspace(JSON.parse(raw));
+  } catch {
+    return null;
+  }
+}

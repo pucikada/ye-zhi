@@ -1,6 +1,6 @@
 import type { Checks, Item, NodeKind, NodeVersion, Origin } from "./types";
 
-const MARK = "【演示生成 · Mock，不是真实模型输出】";
+const MARK = "【本地模拟 · 未接入模型】";
 
 export function classifyIntent(text: string): "version" | "derive" | "ask" {
   const derive = /派生|另做|新方案|换一版|另外做/.test(text);
@@ -118,7 +118,7 @@ export function mockVersion(input: {
         build: "pass",
         types: "pass",
         format: "fail",
-        note: "演示检查：构建通过，类型通过，格式有 1 条警告。检查失败不会解除冻结。",
+        note: "模拟检查，未接入真实构建：构建通过，类型通过，格式有 1 条警告。检查失败不会解除冻结。",
       },
       visual: "pending",
     };
@@ -134,7 +134,7 @@ export function mockVersion(input: {
     return {
       ...base,
       summary: "4 条用例",
-      body: `${MARK}\n用例文本已生成。本演示不会自动执行这些用例。\n${input.upstream}`,
+      body: `${MARK}\n用例文本已生成。自动执行未接入。\n${input.upstream}`,
       items: list,
     };
   }
@@ -170,7 +170,7 @@ function pageHtml(night: boolean, specVersion: string) {
 </head>
 <body>
 <main>
-  <p class="mark">演示预览 · 规范 ${specVersion} · 不是生产构建</p>
+  <p class="mark">模拟预览 · 规范 ${specVersion} · 未接入构建</p>
   <p>春日活动</p>
   <h1>北窗</h1>
   <p class="time">02:14:08</p>

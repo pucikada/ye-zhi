@@ -273,7 +273,7 @@ export function startJob(state: DemoState, nodeId: string, instruction: string):
       ask: "",
     },
   };
-  return ok(replaceNode(state, jobNode), "演示作业已开始。没有真实进度百分比。", node.id);
+  return ok(replaceNode(state, jobNode), "已开始本地模拟。没有真实进度，也没有接入模型。", node.id);
 }
 
 export function cancelJob(state: DemoState, nodeId: string): Outcome {
@@ -291,9 +291,9 @@ export function failJob(state: DemoState, nodeId: string): Outcome {
   return ok(
     replaceNode(state, {
       ...node,
-      job: { ...node.job, status: "failed", ask: "演示失败：结果没有写回。先前版本仍在。" },
+      job: { ...node.job, status: "failed", ask: "模拟失败：结果没有写回。先前版本仍在。" },
     }),
-    "演示失败。来源没有冻结。",
+    "已标为失败。来源没有冻结。",
   );
 }
 
@@ -369,7 +369,7 @@ export function finishJob(state: DemoState, nodeId: string, at: string): Outcome
   );
   const checkNote = produced.checks
     ? "代码已产出，来源已冻结。格式检查未通过，但这不撤销冻结，也不能当作可交付。"
-    : "演示生成完成。实际用到的来源已冻结。";
+    : "生成完成。实际用到的来源已冻结。";
   return ok(frozen, checkNote);
 }
 
@@ -387,19 +387,52 @@ export function dismissStopped(state: DemoState, nodeId: string): Outcome {
   return ok(replaceNode(state, { ...node, job: null }), "已留下停止记录的结果：不重试，不冻结。");
 }
 
+export type InstructionGate = {
+  enabled: boolean;
+  reason: string;
+  mode: "job" | "derive";
+};
+
+export function instructionGate(state: DemoState, nodeId: string): InstructionGate {
+  const node = nodeById(state, nodeId);
+  if (!node) return { enabled: false, reason: "节点不存在", mode: "job" };
+  if (!canAccess(state, state.activeRole, node.projectId)) {
+    return { enabled: false, reason: "你不能编辑这个项目，当前只能看", mode: "job" };
+  }
+  if (node.lock && node.lock.roleId !== state.activeRole) {
+    return { enabled: false, reason: `${roleName(node.lock.roleId)} 正在编辑，你只能看、评论和提醒`, mode: "job" };
+  }
+  if (node.reference && !canAccess(state, state.activeRole, node.reference.projectId)) {
+    return { enabled: false, reason: "权限已撤回，不能读取或再生成", mode: "derive" };
+  }
+  if (node.archived && !node.frozen && !node.reference) {
+    return { enabled: false, reason: "资产已归档，不能再生成", mode: "job" };
+  }
+  if (node.job?.status === "running") {
+    return { enabled: false, reason: "生成中，先取消或等它结束", mode: "job" };
+  }
+  if (node.job?.status === "stopped") {
+    return { enabled: false, reason: node.job.ask || "上游版本变了，先确认是否重试", mode: "job" };
+  }
+  if (node.frozen || node.reference) return { enabled: true, reason: "", mode: "derive" };
+  return { enabled: true, reason: "", mode: "job" };
+}
+
 export function submitInstruction(state: DemoState, nodeId: string, text: string): Outcome {
   const node = nodeById(state, nodeId);
   if (!node) return err(state, "节点不存在");
   const instruction = text.trim();
   if (!instruction) return err(state, "先写一句要改的内容");
-  if (node.frozen || node.reference) {
+  const gate = instructionGate(state, nodeId);
+  if (!gate.enabled) return err(state, gate.reason);
+  if (gate.mode === "derive") {
     return deriveNode(state, nodeId, instruction);
   }
   const intent = classifyIntent(instruction);
   if (intent === "ask") {
     return ok(
       { ...state, intentAsk: { nodeId, text: instruction } },
-      "演示意图识别：这句话没有明确是微调还是派生，先问你。",
+      "这句话没有写明是微调还是派生，先确认。",
     );
   }
   if (intent === "derive") return deriveNode(state, nodeId, instruction);
@@ -673,7 +706,7 @@ export function restoreAccess(state: DemoState, roleId: RoleId, projectId: strin
       ...state,
       revoked: state.revoked.filter((item) => !(item.roleId === roleId && item.projectId === projectId)),
     },
-    "演示里已恢复访问。",
+    "已恢复访问。",
   );
 }
 
@@ -826,6 +859,112 @@ export function setCanvas(state: DemoState, canvasId: string): DemoState {
   return { ...state, activeCanvasId: canvasId, selectedNodeId: null, intentAsk: null, compareIds: [] };
 }
 
+export function createProject(state: DemoState, name: string): Outcome {
+  const trimmed = name.trim();
+  if (!trimmed) return err(state, "先写项目名称");
+  const [withId, id] = nextId(state, "project");
+  const roles = ALL_ROLES.filter((role) => role !== "guest");
+  return ok(
+    {
+      ...withId,
+      projects: [...withId.projects, { id, name: trimmed }],
+      access: { ...withId.access, [id]: roles },
+    },
+    "已新建项目",
+  );
+}
+
+export function createCanvas(state: DemoState, projectId: string, name: string): Outcome {
+  const project = state.projects.find((item) => item.id === projectId);
+  if (!project) return err(state, "项目不存在");
+  if (!canAccess(state, state.activeRole, projectId)) return err(state, "你不能在这个项目里新建画布");
+  const [withId, id] = nextId(state, "canvas");
+  return ok(
+    {
+      ...withId,
+      canvases: [...withId.canvases, { id, projectId, name: name.trim() || "未命名画布", sample: false }],
+      activeCanvasId: id,
+      selectedNodeId: null,
+      intentAsk: null,
+      compareIds: [],
+    },
+    "已新建画布",
+  );
+}
+
+export function renameCanvas(state: DemoState, canvasId: string, name: string): Outcome {
+  const canvas = state.canvases.find((item) => item.id === canvasId);
+  if (!canvas) return err(state, "画布不存在");
+  if (!canAccess(state, state.activeRole, canvas.projectId)) return err(state, "你不能编辑这个项目");
+  const trimmed = name.trim();
+  if (!trimmed) return err(state, "画布名称不能为空");
+  return ok(
+    {
+      ...state,
+      canvases: state.canvases.map((item) => (item.id === canvasId ? { ...item, name: trimmed } : item)),
+    },
+    "已重命名画布",
+  );
+}
+
+export function deleteCanvas(state: DemoState, canvasId: string): Outcome {
+  const canvas = state.canvases.find((item) => item.id === canvasId);
+  if (!canvas) return err(state, "画布不存在");
+  if (canvas.sample) return err(state, "示例画布不能删除。要恢复初始内容，用重置示例。");
+  if (!canAccess(state, state.activeRole, canvas.projectId)) return err(state, "你不能编辑这个项目");
+  const nodeIds = new Set(state.nodes.filter((node) => node.canvasId === canvasId).map((node) => node.id));
+  const canvases = state.canvases.filter((item) => item.id !== canvasId);
+  const fallback = canvases.find((item) => canAccess(state, state.activeRole, item.projectId)) ?? canvases[0];
+  return ok(
+    {
+      ...state,
+      canvases,
+      nodes: state.nodes.filter((node) => node.canvasId !== canvasId),
+      edges: state.edges.filter((edge) => edge.canvasId !== canvasId),
+      comments: state.comments.filter((item) => !nodeIds.has(item.nodeId)),
+      reminders: state.reminders.filter((item) => !nodeIds.has(item.nodeId)),
+      activeCanvasId: state.activeCanvasId === canvasId ? (fallback?.id ?? "") : state.activeCanvasId,
+      selectedNodeId: null,
+    },
+    "已删除画布",
+  );
+}
+
+export function resetSamples(state: DemoState, seed: DemoState): DemoState {
+  const sampleCanvasIds = new Set(seed.canvases.filter((canvas) => canvas.sample).map((canvas) => canvas.id));
+  const sampleProjectIds = new Set(seed.projects.map((project) => project.id));
+  const userCanvases = state.canvases.filter((canvas) => !canvas.sample && !sampleCanvasIds.has(canvas.id));
+  const userCanvasIds = new Set(userCanvases.map((canvas) => canvas.id));
+  const userProjects = state.projects.filter((project) => !sampleProjectIds.has(project.id));
+  const userNodes = state.nodes.filter((node) => userCanvasIds.has(node.canvasId));
+  const userNodeIds = new Set(userNodes.map((node) => node.id));
+  const userTests = Object.fromEntries(Object.entries(state.testResults).filter(([nodeId]) => userNodeIds.has(nodeId)));
+  const keepActive = userCanvasIds.has(state.activeCanvasId) || sampleCanvasIds.has(state.activeCanvasId);
+  return {
+    ...seed,
+    seq: Math.max(seed.seq, state.seq),
+    specVersion: state.specVersion,
+    specText: state.specText,
+    projects: [...seed.projects, ...userProjects],
+    canvases: [...seed.canvases, ...userCanvases],
+    nodes: [...seed.nodes, ...userNodes],
+    edges: [...seed.edges, ...state.edges.filter((edge) => userCanvasIds.has(edge.canvasId))],
+    comments: [...seed.comments, ...state.comments.filter((item) => userNodeIds.has(item.nodeId))],
+    reminders: [...seed.reminders, ...state.reminders.filter((item) => userNodeIds.has(item.nodeId))],
+    access: {
+      ...seed.access,
+      ...Object.fromEntries(userProjects.map((project) => [project.id, state.access[project.id] ?? []])),
+    },
+    revoked: [...seed.revoked, ...state.revoked.filter((item) => !sampleProjectIds.has(item.projectId))],
+    testResults: { ...seed.testResults, ...userTests },
+    activeRole: state.activeRole,
+    activeCanvasId: keepActive ? state.activeCanvasId : seed.activeCanvasId,
+    selectedNodeId: null,
+    intentAsk: null,
+    compareIds: [],
+  };
+}
+
 export function toggleCompare(state: DemoState, nodeId: string): DemoState {
   const has = state.compareIds.includes(nodeId);
   const compareIds = has
@@ -845,8 +984,8 @@ export function bumpVersion(state: DemoState, nodeId: string): Outcome {
     version: version.version + 1,
     at: new Date().toISOString(),
     origin: "manual" as const,
-    summary: `${version.summary} · 演示更新`,
-    instruction: "演示：上游发出新版本",
+    summary: `${version.summary} · 手工再记了一版`,
+    instruction: "手工再记一版",
     consumed: [],
   };
   const written = replaceNode(state, { ...node, versions: [...node.versions, nextVersion] });

@@ -179,17 +179,48 @@
 
 .flow-edge-dash {
   fill: none;
-  stroke: #f6ffc8;
-  stroke-width: 2;
+  stroke: rgba(246, 255, 200, 0.35);
+  stroke-width: 1.5;
   stroke-linecap: round;
-  stroke-dasharray: 8 14;
-  animation: yz-flow 0.9s linear infinite;
   pointer-events: none;
 }
 
 .flow-edge-dash.is-hot {
-  animation-duration: 0.7s;
   stroke: #ffffff;
+  stroke-dasharray: 8 14;
+  animation: yz-flow 0.9s linear infinite;
+}
+
+.react-flow__edge-path.flow-edge-line.is-item,
+.flow-edge-glow.is-item {
+  stroke: #9fd8ff;
+}
+
+.flow-edge-glow.is-item {
+  stroke: rgba(159, 216, 255, 0.28);
+}
+
+.react-flow__edge-path.flow-edge-line.is-dim,
+.flow-edge-dash.is-dim {
+  stroke: rgba(255, 255, 255, 0.16);
+  opacity: 0.55;
+}
+
+.flow-edge-glow.is-dim {
+  opacity: 0;
+}
+
+.flow-edge-label {
+  position: absolute;
+  pointer-events: none;
+  border-radius: 999px;
+  background: #101218;
+  color: #d7ecff;
+  border: 1px solid rgba(159, 216, 255, 0.4);
+  padding: 0 6px;
+  font-size: 10px;
+  line-height: 16px;
+  white-space: nowrap;
 }
 
 .flow-edge-particle {
