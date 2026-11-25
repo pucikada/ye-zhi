@@ -280,11 +280,7 @@ export function DemoCanvas() {
           event.preventDefault();
         }}
         onSelectionChange={(params: OnSelectionChangeParams) => {
-          const ids = params.nodes.map((node) => node.id);
-          if (ids.length === 0) return;
-          useCanvasUi.getState().setSelection(ids);
-          const primary = ids.at(-1) ?? null;
-          if (useDemo.getState().selectedNodeId !== primary) select(primary);
+          useCanvasUi.getState().setSelection(params.nodes.map((node) => node.id));
         }}
         onNodesChange={(changes) => {
           for (const change of changes) {
