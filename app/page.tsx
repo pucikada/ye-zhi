@@ -1,5 +1,5 @@
-import { CanvasApp } from "@/components/canvas/canvas-app";
+import { DemoApp } from "@/components/demo/demo-app";
 
 export default function HomePage() {
-  return <CanvasApp />;
+  return <DemoApp />;
 }
