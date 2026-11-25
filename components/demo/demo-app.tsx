@@ -3,41 +3,39 @@
 import { useEffect, useState } from "react";
 import { ReactFlowProvider } from "@xyflow/react";
 
+import { AssetCenter } from "@/components/demo/asset-center";
 import { DemoCanvas } from "@/components/demo/demo-canvas";
 import { DemoSide } from "@/components/demo/demo-side";
-import { KIND_LABEL, ROLES, type NodeKind, type RoleId } from "@/lib/demo/types";
-import { currentVersion } from "@/lib/demo/rules";
-import { SCENARIOS, useDemo } from "@/lib/demo/store";
-
-const KINDS = Object.keys(KIND_LABEL) as NodeKind[];
+import { HomeView } from "@/components/demo/home-view";
+import { ROLES, type RoleId } from "@/lib/demo/types";
+import { useDemo } from "@/lib/demo/store";
 
 export function DemoApp() {
   const hydrated = useDemo((state) => state.hydrated);
   const hydrate = useDemo((state) => state.hydrate);
-  const [panel, setPanel] = useState<"canvas" | "assets" | "inbox">("canvas");
+  const [panel, setPanel] = useState<"home" | "canvas" | "assets" | "inbox">("home");
 
   useEffect(() => {
     hydrate();
   }, [hydrate]);
 
   if (!hydrated) {
-    return <div className="grid h-dvh place-items-center bg-[#0c0d10] text-sm text-white">正在打开演示</div>;
+    return <div className="grid h-dvh place-items-center bg-[#0c0d10] text-sm text-white">正在打开页织</div>;
   }
 
   return (
     <ReactFlowProvider>
       <div className="flex h-dvh flex-col bg-[#0c0d10] text-[#eceae4]">
-        <div className="border-b border-[#dff25a]/30 bg-[#1a1c08] px-3 py-1.5 text-[12px] text-[#dff25a]">
-          演示模式 · 生成、作业、成员、提醒、权限、检查和测试统计都是 Mock。不调用真实 AI，不代表真实鉴权，也不会自动回归。
-        </div>
         <Toolbar panel={panel} setPanel={setPanel} />
         <div className="flex min-h-0 flex-1">
+          {panel === "canvas" ? <Sidebar onOpenCanvas={() => setPanel("canvas")} /> : null}
           <div className="relative min-w-0 flex-1">
+            {panel === "home" ? <HomeView onOpenCanvas={() => setPanel("canvas")} /> : null}
             {panel === "canvas" ? <DemoCanvas /> : null}
-            {panel === "assets" ? <Assets onOpenCanvas={() => setPanel("canvas")} /> : null}
+            {panel === "assets" ? <AssetCenter onOpenCanvas={() => setPanel("canvas")} /> : null}
             {panel === "inbox" ? <Inbox onOpen={() => setPanel("canvas")} /> : null}
           </div>
-          <DemoSide />
+          {panel === "canvas" ? <DemoSide /> : null}
         </div>
         <Toast />
         <IntentAsk />
@@ -50,130 +48,203 @@ function Toolbar({
   panel,
   setPanel,
 }: {
-  panel: "canvas" | "assets" | "inbox";
-  setPanel: (panel: "canvas" | "assets" | "inbox") => void;
+  panel: "home" | "canvas" | "assets" | "inbox";
+  setPanel: (panel: "home" | "canvas" | "assets" | "inbox") => void;
 }) {
   const role = useDemo((state) => state.activeRole);
-  const chooseRole = useDemo((state) => state.chooseRole);
-  const openScenario = useDemo((state) => state.openScenario);
-  const canvasId = useDemo((state) => state.activeCanvasId);
-  const reset = useDemo((state) => state.reset);
-  const add = useDemo((state) => state.add);
-  const specVersion = useDemo((state) => state.specVersion);
-  const spec = useDemo((state) => state.spec);
   const reminders = useDemo((state) => state.reminders.filter((item) => item.to === role && !item.handled).length);
-
+  const canvasName = useDemo((state) => state.canvases.find((item) => item.id === state.activeCanvasId)?.name ?? "画布");
   return (
     <header className="flex flex-wrap items-center gap-2 border-b border-white/10 px-3 py-2">
       <span className="text-sm font-semibold">页织</span>
-      {SCENARIOS.map((item) => (
-        <button
-          key={item.id}
-          type="button"
-          className={`rounded-full px-2 py-1 text-[12px] ${canvasId === item.canvasId ? "bg-[#dff25a] text-[#1a1c08]" : "bg-white/5 text-white/70"}`}
-          onClick={() => {
-            openScenario(item.canvasId, item.role);
-            setPanel("canvas");
-          }}
-        >
-          {item.name}
+      {panel === "home" ? null : (
+        <button type="button" className="rounded-md border border-white/15 px-2 py-1 text-[12px]" onClick={() => setPanel("home")}>
+          返回首页
         </button>
-      ))}
-      <label className="ml-auto text-[12px] text-white/60">
-        角色
-        <select
-          className="ml-1 rounded border border-white/10 bg-transparent px-1 py-0.5"
-          value={role}
-          aria-label="切换演示角色"
-          onChange={(event) => chooseRole(event.target.value as RoleId)}
-        >
-          {ROLES.map((item) => (
-            <option key={item.id} value={item.id}>
-              {item.name} · {item.title}
-            </option>
-          ))}
-        </select>
-      </label>
-      <button type="button" className="text-[12px] text-white/70" onClick={() => setPanel(panel === "assets" ? "canvas" : "assets")}>
-        资产中心
-      </button>
-      <button type="button" className="text-[12px] text-white/70" onClick={() => setPanel(panel === "inbox" ? "canvas" : "inbox")}>
-        提醒 {reminders}
-      </button>
-      <button
-        type="button"
-        className="text-[12px] text-white/70"
-        onClick={() => spec(specVersion === "规范 v1" ? "规范 v2" : "规范 v1", "更新后的演示规范，只作用于之后的生成。")}
-      >
-        {specVersion}
-      </button>
-      <details className="text-[12px]">
-        <summary className="cursor-pointer text-white/70">添加节点</summary>
-        <div className="absolute z-20 mt-1 grid rounded-lg border border-white/10 bg-[#16181d] p-2">
-          {KINDS.map((kind) => (
-            <button key={kind} type="button" className="px-2 py-1 text-left hover:bg-white/5" onClick={() => add(kind, { x: 120, y: 120 })}>
-              {KIND_LABEL[kind]}
-            </button>
-          ))}
-        </div>
-      </details>
-      <button type="button" className="text-[12px] text-white/50" onClick={reset}>
-        重置演示
-      </button>
+      )}
+      {panel === "canvas" ? <span className="text-[12px] text-white/50">{canvasName}</span> : null}
+      <nav className="ml-auto flex items-center gap-1 text-[12px]">
+        {(
+          [
+            ["home", "首页"],
+            ["assets", "资产"],
+            ["inbox", `提醒${reminders ? ` ${reminders}` : ""}`],
+          ] as const
+        ).map(([id, label]) => (
+          <button
+            key={id}
+            type="button"
+            className={`rounded-full px-2 py-1 ${panel === id ? "bg-[#dff25a] text-[#1a1c08]" : "text-white/70"}`}
+            onClick={() => setPanel(id)}
+          >
+            {label}
+          </button>
+        ))}
+        <Tools />
+      </nav>
     </header>
   );
 }
 
-function Assets({ onOpenCanvas }: { onOpenCanvas: () => void }) {
-  const nodes = useDemo((state) => state.nodes);
+function Tools() {
   const role = useDemo((state) => state.activeRole);
-  const cite = useDemo((state) => state.cite);
-  const [query, setQuery] = useState("");
-  const visible = nodes.filter((node) => node.name.includes(query.trim()) || node.kind.includes(query.trim()));
+  const chooseRole = useDemo((state) => state.chooseRole);
+  const specVersion = useDemo((state) => state.specVersion);
+  const specText = useDemo((state) => state.specText);
+  const publish = useDemo((state) => state.spec);
+  const resetExamples = useDemo((state) => state.resetExamples);
+  const [version, setVersion] = useState(specVersion);
+  const [text, setText] = useState(specText);
+  const [confirmReset, setConfirmReset] = useState(false);
   return (
-    <div className="h-full overflow-auto p-4">
-      <h2 className="text-sm font-medium">资产中心</h2>
-      <p className="mt-1 text-[12px] text-white/45">一个节点一条资产。引用绑定选定版本，不复制内容。</p>
-      <input
-        className="mt-3 w-full max-w-sm rounded-md border border-white/10 bg-transparent px-2 py-1 text-sm"
-        placeholder="按名称检索"
-        value={query}
-        aria-label="检索资产"
-        onChange={(event) => setQuery(event.target.value)}
-      />
-      <div className="mt-3 grid gap-2">
-        {visible.map((node) => {
-          const version = currentVersion(node);
-          const allowed = (useDemo.getState().access[node.projectId] ?? []).includes(role) &&
-            !useDemo.getState().revoked.some((item) => item.roleId === role && item.projectId === node.projectId);
+    <details className="relative">
+      <summary className="cursor-pointer list-none rounded-full px-2 py-1 text-white/60">辅助</summary>
+      <div className="absolute right-0 z-30 mt-1 w-72 rounded-xl border border-white/10 bg-[#16181d] p-3 text-[12px] shadow-xl">
+        <p className="text-white/40">生成、检查、作业和身份都在这台浏览器里模拟，未接入模型、构建或账号系统。</p>
+        <label className="mt-2 grid gap-1">
+          当前身份
+          <select
+            className="rounded border border-white/10 bg-transparent px-1 py-1"
+            aria-label="切换身份"
+            value={role}
+            onChange={(event) => chooseRole(event.target.value as RoleId)}
+          >
+            {ROLES.map((item) => (
+              <option key={item.id} value={item.id}>
+                {item.name} · {item.title}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="mt-2 grid gap-1">
+          规范版本
+          <input className="rounded border border-white/10 bg-transparent px-2 py-1" value={version} onChange={(event) => setVersion(event.target.value)} />
+        </label>
+        <textarea className="mt-2 min-h-16 w-full rounded border border-white/10 bg-transparent p-2" value={text} onChange={(event) => setText(event.target.value)} />
+        <button type="button" className="mt-2 rounded border border-white/15 px-2 py-1" onClick={() => publish(version, text)}>
+          发布规范
+        </button>
+        <p className="mt-1 text-white/35">只影响之后的生成，不改已经记下的版本。</p>
+        <button
+          type="button"
+          className="mt-3 text-white/50"
+          onClick={() => {
+            if (!confirmReset) {
+              setConfirmReset(true);
+              return;
+            }
+            resetExamples();
+            setConfirmReset(false);
+          }}
+        >
+          {confirmReset ? "再点一次，只恢复示例画布" : "重置示例画布"}
+        </button>
+      </div>
+    </details>
+  );
+}
+
+function Sidebar({ onOpenCanvas }: { onOpenCanvas: () => void }) {
+  const projects = useDemo((state) => state.projects);
+  const canvases = useDemo((state) => state.canvases);
+  const activeId = useDemo((state) => state.activeCanvasId);
+  const openCanvas = useDemo((state) => state.openCanvas);
+  const createCanvas = useDemo((state) => state.createCanvas);
+  const createProject = useDemo((state) => state.createProject);
+  const renameCanvas = useDemo((state) => state.renameCanvas);
+  const deleteCanvas = useDemo((state) => state.deleteCanvas);
+  const [projectName, setProjectName] = useState("");
+  const active = canvases.find((item) => item.id === activeId);
+
+  return (
+    <aside className="flex w-44 shrink-0 flex-col overflow-auto border-r border-white/10 md:w-56">
+      <div className="px-3 py-3">
+        <p className="text-[11px] text-white/40">项目和画布</p>
+        {active ? <CanvasName key={active.id} name={active.name} onRename={(name) => renameCanvas(active.id, name)} /> : null}
+      </div>
+      <div className="grid gap-3 px-2 pb-3">
+        {projects.map((project) => {
+          const list = canvases.filter((canvas) => canvas.projectId === project.id);
           return (
-            <article key={node.id} className="rounded-lg border border-white/10 p-3 text-sm">
-              <p>
-                {node.name} · {KIND_LABEL[node.kind]} · {version ? `v${version.version}` : "无版本"}
-                {node.frozen ? " · 已冻结" : ""}
-              </p>
-              {allowed ? (
-                <p className="text-[12px] text-white/50">{version?.summary || "空资产"}</p>
-              ) : (
-                <p className="text-[12px] text-[#f3a0c0]">无权访问</p>
-              )}
-              {allowed && version ? (
+            <section key={project.id}>
+              <div className="flex items-center justify-between px-1">
+                <h2 className="truncate text-[12px] text-white/70">{project.name}</h2>
                 <button
                   type="button"
-                  className="mt-2 text-[12px] text-[#dff25a]"
+                  className="text-[11px] text-white/40"
+                  aria-label={`在${project.name}新建画布`}
                   onClick={() => {
-                    cite(node.id, version.version);
+                    createCanvas(project.id, "未命名画布");
                     onOpenCanvas();
                   }}
                 >
-                  引用 v{version.version} 到当前画布
+                  新建
                 </button>
-              ) : null}
-            </article>
+              </div>
+              <div className="mt-1 grid">
+                {list.map((canvas) => (
+                  <div key={canvas.id} className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      className={`min-w-0 flex-1 truncate rounded px-2 py-1 text-left text-[12px] ${
+                        canvas.id === activeId ? "bg-white/10 text-white" : "text-white/60"
+                      }`}
+                      onClick={() => {
+                        openCanvas(canvas.id);
+                        onOpenCanvas();
+                      }}
+                    >
+                      {canvas.name}
+                      {canvas.sample ? <span className="ml-1 text-[10px] text-white/30">示例</span> : null}
+                    </button>
+                    {canvas.sample ? null : (
+                      <button type="button" className="px-1 text-[11px] text-white/30" aria-label={`删除${canvas.name}`} onClick={() => deleteCanvas(canvas.id)}>
+                        ×
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </section>
           );
         })}
       </div>
-    </div>
+      <form
+        className="mt-auto grid gap-1 border-t border-white/10 p-3"
+        onSubmit={(event) => {
+          event.preventDefault();
+          if (!projectName.trim()) return;
+          createProject(projectName);
+          setProjectName("");
+        }}
+      >
+        <input
+          aria-label="新项目名称"
+          className="rounded border border-white/10 bg-transparent px-2 py-1 text-[12px]"
+          placeholder="新项目"
+          value={projectName}
+          onChange={(event) => setProjectName(event.target.value)}
+        />
+        <button type="submit" className="text-left text-[12px] text-white/60">
+          新建项目
+        </button>
+      </form>
+    </aside>
+  );
+}
+
+function CanvasName({ name, onRename }: { name: string; onRename: (name: string) => void }) {
+  const [draft, setDraft] = useState(name);
+  return (
+    <input
+      aria-label="画布名称"
+      className="mt-2 w-full rounded border border-white/10 bg-transparent px-2 py-1 text-[12px]"
+      value={draft}
+      onChange={(event) => setDraft(event.target.value)}
+      onBlur={() => {
+        if (draft.trim() && draft !== name) onRename(draft);
+      }}
+    />
   );
 }
 
@@ -181,20 +252,18 @@ function Inbox({ onOpen }: { onOpen: () => void }) {
   const role = useDemo((state) => state.activeRole);
   const reminders = useDemo((state) => state.reminders);
   const nodes = useDemo((state) => state.nodes);
-  const canvases = useDemo((state) => state.canvases);
-  const openScenario = useDemo((state) => state.openScenario);
+  const openCanvas = useDemo((state) => state.openCanvas);
   const select = useDemo((state) => state.select);
   const settle = useDemo((state) => state.settleReminder);
   const mine = reminders.filter((item) => item.to === role);
   return (
     <div className="h-full overflow-auto p-4">
-      <h2 className="text-sm font-medium">我的提醒</h2>
-      <p className="mt-1 text-[12px] text-white/45">只显示当前角色的提醒。处理不会改别人的状态。</p>
+      <h2 className="text-sm font-medium">提醒</h2>
+      <p className="mt-1 text-[12px] text-white/45">只显示当前身份收到的提醒。处理不会改别人的状态。</p>
       <div className="mt-3 grid gap-2">
         {mine.length === 0 ? <p className="text-sm text-white/50">没有提醒。</p> : null}
         {mine.map((item) => {
           const node = nodes.find((entry) => entry.id === item.nodeId);
-          const canvas = canvases.find((entry) => entry.id === node?.canvasId);
           return (
             <article key={item.id} className="rounded-lg border border-white/10 p-3 text-sm">
               <p>
@@ -206,14 +275,13 @@ function Inbox({ onOpen }: { onOpen: () => void }) {
                   type="button"
                   className="text-[12px] text-[#dff25a]"
                   onClick={() => {
-                    if (!canvas || !node) return;
-                    const scenario = SCENARIOS.find((entry) => entry.canvasId === canvas.id);
-                    openScenario(canvas.id, scenario?.role ?? role);
+                    if (!node) return;
+                    openCanvas(node.canvasId);
                     select(node.id);
                     onOpen();
                   }}
                 >
-                  定位节点
+                  打开画布
                 </button>
                 {item.handled ? null : (
                   <button type="button" className="text-[12px]" onClick={() => settle(item.id, "已确认")}>
@@ -232,7 +300,7 @@ function Inbox({ onOpen }: { onOpen: () => void }) {
 function Toast() {
   const toast = useDemo((state) => state.toast);
   if (!toast) return null;
-  return <div className="fixed bottom-4 left-1/2 z-50 -translate-x-1/2 rounded-full bg-[#eceae4] px-3 py-1.5 text-xs text-[#16180d]">{toast}</div>;
+  return <div className="pointer-events-none fixed bottom-4 left-1/2 z-50 -translate-x-1/2 rounded-full bg-[#eceae4] px-3 py-1.5 text-xs text-[#16180d]">{toast}</div>;
 }
 
 function IntentAsk() {
@@ -241,9 +309,9 @@ function IntentAsk() {
   if (!ask) return null;
   return (
     <div className="fixed inset-0 z-40 grid place-items-center bg-black/50 p-4">
-      <div className="w-full max-w-md rounded-xl border border-white/10 bg-[#16181d] p-4">
-        <p className="text-sm font-medium">演示意图识别 · 先确认</p>
-        <p className="mt-2 text-[13px] text-white/70">「{ask.text}」没有明确是微调当前节点，还是派生新节点。不会猜测执行。</p>
+      <div role="dialog" aria-modal="true" aria-labelledby="intent-title" className="w-full max-w-md rounded-xl border border-white/10 bg-[#16181d] p-4">
+        <p id="intent-title" className="text-sm font-medium">先确认怎么改</p>
+        <p className="mt-2 text-[13px] text-white/70">「{ask.text}」没有写明是微调当前节点，还是派生新节点。</p>
         <div className="mt-3 flex gap-2">
           <button type="button" className="rounded-md bg-[#dff25a] px-3 py-1.5 text-sm text-[#1a1c08]" onClick={() => choose("version")}>
             作为新版本

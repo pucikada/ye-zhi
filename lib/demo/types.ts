@@ -122,7 +122,7 @@ export type DemoState = {
   specVersion: string;
   specText: string;
   projects: Array<{ id: string; name: string }>;
-  canvases: Array<{ id: string; projectId: string; name: string; scenario: ScenarioId }>;
+  canvases: Array<{ id: string; projectId: string; name: string; sample: boolean; scenario?: ScenarioId }>;
   nodes: DemoNode[];
   edges: DemoEdge[];
   comments: Comment[];

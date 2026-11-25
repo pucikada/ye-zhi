@@ -2,15 +2,20 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { classifyIntent } from "./mock-content";
+import { normalizeWorkspace } from "./persist";
+import { createSeed } from "./seed";
 import {
   acquireLock,
   addNode,
+  instructionGate,
   archiveNode,
   bumpVersion,
   cancelJob,
   connect,
+  createCanvas,
   createReference,
   currentVersion,
+  deleteCanvas,
   deleteEdge,
   deleteNode,
   failJob,
@@ -20,8 +25,10 @@ import {
   nodeById,
   publishSpec,
   remind,
+  releaseLock,
   removeItem,
   renameItem,
+  resetSamples,
   resolveIntent,
   revokeAccess,
   setRole,
@@ -41,8 +48,8 @@ function blank(): DemoState {
       { id: "lib", name: "资产库" },
     ],
     canvases: [
-      { id: "c", projectId: "p", name: "画布", scenario: "campaign" },
-      { id: "lib-c", projectId: "lib", name: "库", scenario: "reuse" },
+      { id: "c", projectId: "p", name: "画布", sample: false },
+      { id: "lib-c", projectId: "lib", name: "库", sample: false },
     ],
     nodes: [],
     edges: [],
@@ -250,6 +257,41 @@ test("提醒按人处理，编辑锁只锁当前节点", () => {
   assert.equal(startJob(state, pageId, "微调空页面").ok, true);
 });
 
+test("无权限和编辑占用不能提交，冻结提交只派生", () => {
+  let state = done(addNode(blank(), "design", { x: 0, y: 0 }, "稿 a"));
+  const designId = state.selectedNodeId ?? "";
+  state = done(startJob(state, designId, "微调初稿"));
+  state = done(finishJob(state, designId, "2026-11-25T00:00:00.000Z"));
+  state = done(acquireLock(state, designId));
+  state = setRole(state, "fe");
+  const locked = submitInstruction(state, designId, "微调标题");
+  assert.equal(locked.ok, false);
+  if (!locked.ok) assert.match(locked.message, /正在编辑/);
+  assert.equal(instructionGate(state, designId).enabled, false);
+  state = setRole(state, "be");
+  state = done(releaseLock(state, designId));
+  state = { ...state, access: { ...state.access, p: ["be"] } };
+  state = setRole(state, "guest");
+  const denied = submitInstruction(state, designId, "微调标题");
+  assert.equal(denied.ok, false);
+  if (!denied.ok) assert.match(denied.message, /只能看/);
+  state = setRole(state, "be");
+  state = done(addNode(state, "page", { x: 300, y: 0 }, "线上页"));
+  const pageId = state.selectedNodeId ?? "";
+  state = done(connect(state, { source: designId, target: pageId }));
+  state = done(startJob(state, pageId, "生成页面"));
+  state = done(finishJob(state, pageId, "2026-11-25T00:02:00.000Z"));
+  assert.equal(nodeById(state, designId)?.frozen, true);
+  const name = nodeById(state, designId)?.name;
+  const derived = submitInstruction(state, designId, "微调标题");
+  state = done(derived);
+  const created = nodeById(state, state.selectedNodeId ?? "");
+  assert.notEqual(created?.id, designId);
+  assert.equal(created?.derivedFrom?.nodeId, designId);
+  assert.equal(nodeById(state, designId)?.name, name);
+  assert.equal(nodeById(state, designId)?.frozen, true);
+});
+
 test("撤权后不能读取或再生成，已有产物还在", () => {
   let state = setRole(blank(), "fe");
   state = { ...state, activeCanvasId: "lib-c" };
@@ -267,8 +309,37 @@ test("撤权后不能读取或再生成，已有产物还在", () => {
   state = done(finishJob(state, pageId, "2026-11-25T00:01:00.000Z"));
   const html = currentVersion(nodeById(state, pageId)!)?.html ?? "";
   state = done(revokeAccess(state, "fe", "lib"));
-  assert.match(html, /演示/);
+  assert.match(html, /模拟/);
   assert.equal(startJob(state, cardId, "再生成").ok, false);
   const again = connect(state, { source: cardId, target: pageId });
   assert.equal(again.ok, false);
+});
+
+test("重置示例保留用户新建的画布", () => {
+  let state = createSeed();
+  const created = createCanvas(state, "p-campaign", "我的草稿");
+  state = done(created);
+  const canvasId = state.activeCanvasId;
+  state = done(addNode(state, "doc", { x: 12, y: 12 }, "我的文档"));
+  const nodeId = state.selectedNodeId ?? "";
+  state = done(submitInstruction(state, nodeId, "微调：只属于我的文档"));
+  const sampleCount = createSeed().nodes.filter((node) => node.canvasId === "cv-campaign").length;
+  const reset = resetSamples(state, createSeed());
+  assert.equal(reset.canvases.find((canvas) => canvas.id === canvasId)?.sample, false);
+  assert.equal(reset.nodes.some((node) => node.id === nodeId && node.name === "我的文档"), true);
+  assert.equal(reset.nodes.filter((node) => node.canvasId === "cv-campaign").length, sampleCount);
+  assert.equal(deleteCanvas(reset, "cv-campaign").ok, false);
+});
+
+test("旧画布记录会标成示例，新建画布不会", () => {
+  const legacy = normalizeWorkspace({
+    ...blank(),
+    canvases: [
+      { id: "cv-campaign", projectId: "p", name: "活动页", scenario: "campaign" },
+      { id: "canvas-user", projectId: "p", name: "草稿", sample: false },
+    ],
+  });
+  assert.equal(legacy?.canvases.find((canvas) => canvas.id === "cv-campaign")?.sample, true);
+  assert.equal(legacy?.canvases.find((canvas) => canvas.id === "canvas-user")?.sample, false);
+  assert.equal(normalizeWorkspace({ nodes: [] }), null);
 });
