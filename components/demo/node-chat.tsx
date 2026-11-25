@@ -162,6 +162,11 @@ export function NodeChat() {
           className="max-h-28 min-h-10 flex-1 resize-none rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-[13px] outline-none placeholder:text-white/30 focus:border-[#dff25a] disabled:opacity-50"
           onChange={(event) => setDraft(event.target.value)}
           onKeyDown={(event) => {
+            if (event.key === "Escape") {
+              event.preventDefault();
+              select(null);
+              return;
+            }
             event.stopPropagation();
             if (event.key === "Enter" && !event.shiftKey) {
               event.preventDefault();
