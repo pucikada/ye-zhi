@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { classifyIntent } from "./mock-content";
+import { restoreCanvasHistory } from "./history";
 import { normalizeWorkspace } from "./persist";
 import { createSeed } from "./seed";
 import {
@@ -329,6 +330,28 @@ test("重置示例保留用户新建的画布", () => {
   assert.equal(reset.nodes.some((node) => node.id === nodeId && node.name === "我的文档"), true);
   assert.equal(reset.nodes.filter((node) => node.canvasId === "cv-campaign").length, sampleCount);
   assert.equal(deleteCanvas(reset, "cv-campaign").ok, false);
+});
+
+test("撤销不能把已冻结的内容改回去", () => {
+  let state = done(addNode(blank(), "design", { x: 0, y: 0 }, "稿"));
+  const id = state.selectedNodeId ?? "";
+  const before = { nodes: state.nodes, edges: state.edges, selectedNodeId: state.selectedNodeId };
+  state = done(startJob(state, id, "微调初稿"));
+  state = done(finishJob(state, id, "2026-11-25T00:00:00.000Z"));
+  state = done(addNode(state, "page", { x: 200, y: 0 }, "页"));
+  const pageId = state.selectedNodeId ?? "";
+  state = done(connect(state, { source: id, target: pageId }));
+  state = done(startJob(state, pageId, "生成页面"));
+  state = done(finishJob(state, pageId, "2026-11-25T00:01:00.000Z"));
+  assert.equal(nodeById(state, id)?.frozen, true);
+  const restored = restoreCanvasHistory(state, before);
+  const design = restored.nodes.find((node) => node.id === id);
+  assert.equal(design?.frozen, true);
+  assert.equal(design?.name, "稿");
+  assert.equal(design?.versions.length, nodeById(state, id)?.versions.length);
+  for (const edge of state.edges.filter((item) => item.target === id)) {
+    assert.equal(restored.edges.some((item) => item.id === edge.id), true);
+  }
 });
 
 test("旧画布记录会标成示例，新建画布不会", () => {
