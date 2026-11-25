@@ -13,12 +13,10 @@ import {
   type Connection,
   type Edge,
   type Node,
-  type OnSelectionChangeParams,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 
 import { AddNodeMenu } from "@/components/demo/add-node-menu";
-import { useCanvasUi } from "@/components/demo/canvas-ui";
 import { NodeChat } from "@/components/demo/node-chat";
 import { PreviewDialog } from "@/components/demo/preview-dialog";
 import { demoNodeTypes, type CardModel } from "@/components/demo/demo-node";
@@ -116,19 +114,9 @@ export function DemoCanvas() {
   const add = useDemo((state) => state.add);
   const undo = useDemo((state) => state.undo);
   const redo = useDemo((state) => state.redo);
-  const selectedIds = useCanvasUi((state) => state.selectedIds);
   const { fitView, screenToFlowPosition } = useReactFlow();
   const lastPaneClick = useRef(0);
   const [menu, setMenu] = useState<{ x: number; y: number; flow: { x: number; y: number } } | null>(null);
-
-  useEffect(() => {
-    if (!selected) {
-      if (useCanvasUi.getState().selectedIds.length > 0) useCanvasUi.getState().setSelection([]);
-      return;
-    }
-    const ids = useCanvasUi.getState().selectedIds;
-    if (!ids.includes(selected)) useCanvasUi.getState().setSelection([selected]);
-  }, [selected]);
 
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
@@ -177,7 +165,7 @@ export function DemoCanvas() {
       const shown = node.reference && source ? source.versions.find((item) => item.version === node.reference?.version) : node.versions.at(-1);
       const gate = instructionGate({ ...useDemo.getState(), access, revoked, activeRole: role }, node.id);
       const itemKey = (shown?.items ?? []).map((item) => `${item.id}:${item.name}`).join("|");
-      const picked = selectedIds.includes(node.id);
+      const picked = node.id === selected;
       const key = `${node.name}:${shown?.summary ?? ""}:${shown?.version ?? 0}:${itemKey}:${node.removedItemIds.length}:${node.frozen}:${node.job?.status ?? ""}:${node.lock?.roleId ?? ""}:${picked}:${gate.enabled}:${gate.mode}:${gate.reason}`;
       const cached = nodeCache.get(node.id);
       if (cached && cached.key === key && cached.flow.position === node.position) {
@@ -188,7 +176,7 @@ export function DemoCanvas() {
         id: node.id,
         type: "card",
         position: node.position,
-        selected: selectedIds.includes(node.id),
+        selected: node.id === selected,
         data: cardModel(node, source, role, access, revoked),
       };
       nodeCache.set(node.id, { key, flow });
@@ -198,7 +186,7 @@ export function DemoCanvas() {
       if (!seen.has(id)) nodeCache.delete(id);
     }
     return next;
-  }, [nodes, canvasId, selectedIds, role, access, revoked]);
+  }, [nodes, canvasId, selected, role, access, revoked]);
 
   const flowEdges = useMemo(() => {
     const visible = new Set(flowNodes.map((node) => node.id));
@@ -279,9 +267,6 @@ export function DemoCanvas() {
           if (target?.closest("input, textarea, select, [contenteditable='true']")) return;
           event.preventDefault();
         }}
-        onSelectionChange={(params: OnSelectionChangeParams) => {
-          useCanvasUi.getState().setSelection(params.nodes.map((node) => node.id));
-        }}
         onNodesChange={(changes) => {
           for (const change of changes) {
             if (change.type === "remove") remove(change.id);
@@ -318,7 +303,7 @@ export function DemoCanvas() {
         <Background variant={BackgroundVariant.Dots} gap={22} size={1.1} color="#2a2e28" />
         <Controls showInteractive={false} />
         <Panel position="top-left" className="rounded-md bg-[#101218]/80 px-2 py-1 text-[11px] text-white/45">
-          双击空白添加节点 · 单击节点对话 · 按住 Shift 多选
+          双击空白添加节点 · 单击节点对话
         </Panel>
         <MiniMap
           pannable
