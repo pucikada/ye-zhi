@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Background,
   BackgroundVariant,
@@ -13,6 +13,7 @@ import {
   type Connection,
   type Edge,
   type Node,
+  type NodeChange,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 
@@ -22,6 +23,7 @@ import { PreviewDialog } from "@/components/demo/preview-dialog";
 import { demoNodeTypes, type CardModel } from "@/components/demo/demo-node";
 import { FlowEdge } from "@/components/canvas/flow-edge";
 import { KIND_COLOR, type NodeKind, type RoleId } from "@/lib/demo/types";
+import { removalIds, settleSelection } from "@/lib/demo/canvas-changes";
 import { currentVersion, instructionGate, versionOf } from "@/lib/demo/rules";
 import { useDemo } from "@/lib/demo/store";
 import type { DemoNode } from "@/lib/demo/types";
@@ -148,6 +150,13 @@ export function DemoCanvas() {
     setMenu({ x, y, flow: screenToFlowPosition({ x, y }) });
   }
 
+  const handleNodesChange = useCallback(
+    (changes: NodeChange[]) => {
+      for (const id of removalIds(changes)) remove(id);
+    },
+    [remove],
+  );
+
   useEffect(() => {
     const timer = window.setTimeout(() => {
       void fitView({ padding: 0.2, duration: 180 });
@@ -243,7 +252,7 @@ export function DemoCanvas() {
           const target = event.target as HTMLElement;
           if (target.closest("button, a, input, textarea, select, iframe")) return;
           setMenu(null);
-          select(node.id);
+          select(settleSelection(selected, [node.id], "click"));
         }}
         onPaneClick={(event) => {
           const now = Date.now();
@@ -254,7 +263,7 @@ export function DemoCanvas() {
           }
           lastPaneClick.current = now;
           setMenu(null);
-          select(null);
+          select(settleSelection(selected, [], "clear"));
         }}
         onPaneContextMenu={(event) => {
           const target = event.target as HTMLElement | null;
@@ -267,11 +276,7 @@ export function DemoCanvas() {
           if (target?.closest("input, textarea, select, [contenteditable='true']")) return;
           event.preventDefault();
         }}
-        onNodesChange={(changes) => {
-          for (const change of changes) {
-            if (change.type === "remove") remove(change.id);
-          }
-        }}
+        onNodesChange={handleNodesChange}
         onEdgesChange={(changes) => {
           for (const change of changes) {
             if (change.type === "remove") unlink(change.id);
@@ -316,7 +321,7 @@ export function DemoCanvas() {
       </ReactFlow>
       {flowNodes.length === 0 ? (
         <div className="pointer-events-none absolute inset-0 grid place-items-center">
-          <div className="pointer-events-auto max-w-sm rounded-2xl border border-white/10 bg-[#16181d]/90 px-5 py-4 text-center shadow-xl">
+          <div className="pointer-events-none max-w-sm rounded-2xl border border-white/10 bg-[#16181d]/90 px-5 py-4 text-center shadow-xl">
             <p className="text-sm font-medium">画布是空的</p>
             <p className="mt-1 text-xs text-white/50">双击空白处添加节点。点开节点，用对话改内容。</p>
           </div>
