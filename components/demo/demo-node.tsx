@@ -1,7 +1,7 @@
 "use client";
 
-import { memo, useEffect, useRef, useState } from "react";
-import { Handle, NodeToolbar, Position, useUpdateNodeInternals, type Node, type NodeProps } from "@xyflow/react";
+import { memo, useEffect } from "react";
+import { Handle, Position, useUpdateNodeInternals, type Node, type NodeProps } from "@xyflow/react";
 
 import { useCanvasUi } from "@/components/demo/canvas-ui";
 import { KIND_LABEL, type NodeKind } from "@/lib/demo/types";
@@ -137,84 +137,7 @@ function DemoNodeView({ data, selected }: NodeProps<Node<CardModel, "card">>) {
               </ul>
             </section>
           ))}
-      <Composer data={data} selected={selected} />
     </article>
-  );
-}
-
-function Composer({ data, selected }: { data: CardModel; selected: boolean }) {
-  const instruct = useDemo((state) => state.instruct);
-  const cancel = useDemo((state) => state.cancel);
-  const fail = useDemo((state) => state.simulateFail);
-  const [draft, setDraft] = useState("");
-  const field = useRef<HTMLTextAreaElement>(null);
-  useEffect(() => {
-    if (!selected || !data.compose.enabled) return;
-    const active = document.activeElement;
-    if (active instanceof HTMLInputElement || active instanceof HTMLTextAreaElement) return;
-    const timer = window.setTimeout(() => field.current?.focus(), 40);
-    return () => window.clearTimeout(timer);
-  }, [selected, data.id, data.compose.enabled]);
-
-  const hint = !data.compose.enabled
-    ? data.compose.reason
-    : data.compose.mode === "derive"
-      ? data.frozen
-        ? "已永久冻结。提交会派生新节点，不会改这一张。"
-        : "引用不复制内容。提交会派生新资产。"
-      : "微调或补充出新版本；派生或另做会新建。含糊时会先问。本地模拟，未接入模型。";
-
-  return (
-    <NodeToolbar isVisible={selected} position={Position.Bottom} offset={8} align="center">
-      <form
-        className="nodrag nopan nowheel w-[280px] rounded-xl border border-white/10 bg-[#14171c] p-2 text-zinc-100 shadow-xl"
-        onSubmit={(event) => {
-          event.preventDefault();
-          const text = draft.trim();
-          if (!text || !data.compose.enabled) return;
-          instruct(data.id, text);
-          setDraft("");
-        }}
-        onPointerDown={(event) => event.stopPropagation()}
-        onContextMenu={(event) => event.stopPropagation()}
-      >
-        <p className={`text-[10px] ${data.compose.enabled ? "text-white/45" : "text-[#f3a0c0]"}`}>{hint}</p>
-        <textarea
-          ref={field}
-          aria-label="给这个节点的指令"
-          className="mt-1 min-h-14 w-full resize-none rounded-md border border-white/10 bg-black/30 p-2 text-[12px] outline-none disabled:opacity-50"
-          placeholder={data.compose.enabled ? "写下要生成或修改的内容" : data.compose.reason}
-          disabled={!data.compose.enabled}
-          value={draft}
-          onChange={(event) => setDraft(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === "Enter" && !event.shiftKey) {
-              event.preventDefault();
-              event.currentTarget.form?.requestSubmit();
-            }
-          }}
-        />
-        <div className="mt-1 flex gap-2">
-          <button
-            type="submit"
-            disabled={!data.compose.enabled}
-            className="rounded-md bg-[#dff25a] px-2 py-1 text-[12px] font-medium text-[#1a1c08] disabled:opacity-40"
-          >
-            {data.compose.mode === "derive" ? "派生新节点" : "提交"}
-          </button>
-          {data.job === "running" ? (
-            <>
-              <button type="button" className="rounded-md border border-white/15 px-2 py-1 text-[12px]" onClick={() => cancel(data.id)}>
-                取消
-              </button>
-              <button type="button" className="rounded-md border border-white/15 px-2 py-1 text-[12px]" onClick={() => fail(data.id)}>
-                标记失败
-              </button>
-            </>
-          ) : null}
-        </div>
-      </form>
-    </NodeToolbar>
   );
 }
 

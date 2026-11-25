@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Background,
   BackgroundVariant,
@@ -13,10 +13,13 @@ import {
   type Connection,
   type Edge,
   type Node,
+  type OnSelectionChangeParams,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 
 import { AddNodeMenu } from "@/components/demo/add-node-menu";
+import { useCanvasUi } from "@/components/demo/canvas-ui";
+import { NodeChat } from "@/components/demo/node-chat";
 import { PreviewDialog } from "@/components/demo/preview-dialog";
 import { demoNodeTypes, type CardModel } from "@/components/demo/demo-node";
 import { FlowEdge } from "@/components/canvas/flow-edge";
@@ -108,9 +111,54 @@ export function DemoCanvas() {
   const select = useDemo((state) => state.select);
   const move = useDemo((state) => state.move);
   const link = useDemo((state) => state.link);
+  const unlink = useDemo((state) => state.unlink);
+  const remove = useDemo((state) => state.remove);
   const add = useDemo((state) => state.add);
+  const undo = useDemo((state) => state.undo);
+  const redo = useDemo((state) => state.redo);
+  const selectedIds = useCanvasUi((state) => state.selectedIds);
   const { fitView, screenToFlowPosition } = useReactFlow();
+  const lastPaneClick = useRef(0);
   const [menu, setMenu] = useState<{ x: number; y: number; flow: { x: number; y: number } } | null>(null);
+
+  useEffect(() => {
+    if (!selected) {
+      if (useCanvasUi.getState().selectedIds.length > 0) useCanvasUi.getState().setSelection([]);
+      return;
+    }
+    const ids = useCanvasUi.getState().selectedIds;
+    if (!ids.includes(selected)) useCanvasUi.getState().setSelection([selected]);
+  }, [selected]);
+
+  useEffect(() => {
+    function onKey(event: KeyboardEvent) {
+      const target = event.target as HTMLElement | null;
+      const typing =
+        target?.tagName === "INPUT" ||
+        target?.tagName === "TEXTAREA" ||
+        target?.tagName === "SELECT" ||
+        Boolean(target?.isContentEditable);
+      if (typing) return;
+      const mod = event.metaKey || event.ctrlKey;
+      if (mod && event.key.toLowerCase() === "z") {
+        event.preventDefault();
+        if (event.shiftKey) redo();
+        else undo();
+      } else if (mod && event.key.toLowerCase() === "y") {
+        event.preventDefault();
+        redo();
+      } else if (mod && event.key === "Enter") {
+        event.preventDefault();
+        document.querySelector<HTMLTextAreaElement>('textarea[aria-label="告诉这一节点要改什么"]')?.focus();
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [redo, undo]);
+
+  function openMenu(x: number, y: number) {
+    setMenu({ x, y, flow: screenToFlowPosition({ x, y }) });
+  }
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -129,7 +177,8 @@ export function DemoCanvas() {
       const shown = node.reference && source ? source.versions.find((item) => item.version === node.reference?.version) : node.versions.at(-1);
       const gate = instructionGate({ ...useDemo.getState(), access, revoked, activeRole: role }, node.id);
       const itemKey = (shown?.items ?? []).map((item) => `${item.id}:${item.name}`).join("|");
-      const key = `${node.name}:${shown?.summary ?? ""}:${shown?.version ?? 0}:${itemKey}:${node.removedItemIds.length}:${node.frozen}:${node.job?.status ?? ""}:${node.lock?.roleId ?? ""}:${selected === node.id}:${gate.enabled}:${gate.mode}:${gate.reason}`;
+      const picked = selectedIds.includes(node.id);
+      const key = `${node.name}:${shown?.summary ?? ""}:${shown?.version ?? 0}:${itemKey}:${node.removedItemIds.length}:${node.frozen}:${node.job?.status ?? ""}:${node.lock?.roleId ?? ""}:${picked}:${gate.enabled}:${gate.mode}:${gate.reason}`;
       const cached = nodeCache.get(node.id);
       if (cached && cached.key === key && cached.flow.position === node.position) {
         next.push(cached.flow);
@@ -139,7 +188,7 @@ export function DemoCanvas() {
         id: node.id,
         type: "card",
         position: node.position,
-        selected: node.id === selected,
+        selected: selectedIds.includes(node.id),
         data: cardModel(node, source, role, access, revoked),
       };
       nodeCache.set(node.id, { key, flow });
@@ -149,7 +198,7 @@ export function DemoCanvas() {
       if (!seen.has(id)) nodeCache.delete(id);
     }
     return next;
-  }, [nodes, canvasId, selected, role, access, revoked]);
+  }, [nodes, canvasId, selectedIds, role, access, revoked]);
 
   const flowEdges = useMemo(() => {
     const visible = new Set(flowNodes.map((node) => node.id));
@@ -189,31 +238,63 @@ export function DemoCanvas() {
   }, [edges, canvasId, flowNodes, nodes, role, access, revoked]);
 
   return (
-    <div className="h-full w-full">
+    <div
+      className="relative h-full w-full"
+      onDoubleClickCapture={(event) => {
+        const target = event.target as HTMLElement;
+        if (!target.closest(".react-flow__pane")) return;
+        openMenu(event.clientX, event.clientY);
+      }}
+    >
       <ReactFlow
         nodes={flowNodes}
         edges={flowEdges}
         nodeTypes={demoNodeTypes}
         edgeTypes={edgeTypes}
-        onNodeClick={(_, node) => select(node.id)}
-        onPaneClick={() => {
-          select(null);
+        onNodeClick={(event, node) => {
+          const target = event.target as HTMLElement;
+          if (target.closest("button, a, input, textarea, select, iframe")) return;
           setMenu(null);
+          select(node.id);
+        }}
+        onPaneClick={(event) => {
+          const now = Date.now();
+          if (now - lastPaneClick.current < 320) {
+            lastPaneClick.current = 0;
+            openMenu(event.clientX, event.clientY);
+            return;
+          }
+          lastPaneClick.current = now;
+          setMenu(null);
+          select(null);
         }}
         onPaneContextMenu={(event) => {
           const target = event.target as HTMLElement | null;
           if (target?.closest("input, textarea, select, [contenteditable='true']")) return;
           event.preventDefault();
-          setMenu({
-            x: event.clientX,
-            y: event.clientY,
-            flow: screenToFlowPosition({ x: event.clientX, y: event.clientY }),
-          });
+          openMenu(event.clientX, event.clientY);
         }}
         onNodeContextMenu={(event) => {
           const target = event.target as HTMLElement | null;
           if (target?.closest("input, textarea, select, [contenteditable='true']")) return;
           event.preventDefault();
+        }}
+        onSelectionChange={(params: OnSelectionChangeParams) => {
+          const ids = params.nodes.map((node) => node.id);
+          if (ids.length === 0) return;
+          useCanvasUi.getState().setSelection(ids);
+          const primary = ids.at(-1) ?? null;
+          if (useDemo.getState().selectedNodeId !== primary) select(primary);
+        }}
+        onNodesChange={(changes) => {
+          for (const change of changes) {
+            if (change.type === "remove") remove(change.id);
+          }
+        }}
+        onEdgesChange={(changes) => {
+          for (const change of changes) {
+            if (change.type === "remove") unlink(change.id);
+          }
         }}
         onNodeDragStop={(_, node) => move(node.id, node.position)}
         onConnect={(connection: Connection) => {
@@ -224,10 +305,15 @@ export function DemoCanvas() {
           link(connection.source, connection.target, itemId);
         }}
         onlyRenderVisibleElements
-        minZoom={0.25}
-        maxZoom={1.5}
+        minZoom={0.2}
+        maxZoom={1.75}
+        zoomOnDoubleClick={false}
+        panOnDrag
+        selectionOnDrag={false}
+        selectionKeyCode="Shift"
+        multiSelectionKeyCode="Shift"
         colorMode="dark"
-        deleteKeyCode={null}
+        deleteKeyCode={["Backspace", "Delete"]}
         connectionLineType={ConnectionLineType.SmoothStep}
         connectionRadius={28}
         proOptions={{ hideAttribution: true }}
@@ -236,7 +322,7 @@ export function DemoCanvas() {
         <Background variant={BackgroundVariant.Dots} gap={22} size={1.1} color="#2a2e28" />
         <Controls showInteractive={false} />
         <Panel position="top-left" className="rounded-md bg-[#101218]/80 px-2 py-1 text-[11px] text-white/45">
-          空白处右键添加节点
+          双击空白添加节点 · 单击节点对话 · 按住 Shift 多选
         </Panel>
         <MiniMap
           pannable
@@ -247,17 +333,26 @@ export function DemoCanvas() {
           nodeColor={(node) => KIND_COLOR[(node.data as CardModel | undefined)?.kind ?? "doc"]}
         />
       </ReactFlow>
+      {flowNodes.length === 0 ? (
+        <div className="pointer-events-none absolute inset-0 grid place-items-center">
+          <div className="pointer-events-auto max-w-sm rounded-2xl border border-white/10 bg-[#16181d]/90 px-5 py-4 text-center shadow-xl">
+            <p className="text-sm font-medium">画布是空的</p>
+            <p className="mt-1 text-xs text-white/50">双击空白处添加节点。点开节点，用对话改内容。</p>
+          </div>
+        </div>
+      ) : null}
       {menu ? (
         <AddNodeMenu
           x={menu.x}
           y={menu.y}
           onClose={() => setMenu(null)}
           onPick={(kind: NodeKind) => {
-            add(kind, menu.flow);
+            add(kind, { x: menu.flow.x - 140, y: menu.flow.y - 24 });
             setMenu(null);
           }}
         />
       ) : null}
+      <NodeChat />
       <PreviewDialog />
     </div>
   );

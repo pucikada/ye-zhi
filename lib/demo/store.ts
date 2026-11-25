@@ -2,6 +2,7 @@
 
 import { create } from "zustand";
 
+import { restoreCanvasHistory, type CanvasSnap } from "./history";
 import { normalizeWorkspace } from "./persist";
 import { createSeed } from "./seed";
 import {
@@ -95,9 +96,30 @@ type DemoStore = DemoState & {
   restore: (roleId: RoleId, projectId: string) => void;
     compare: (nodeId: string) => void;
     focus: (nodeId: string) => void;
+  undo: () => void;
+  redo: () => void;
 };
 
 const timers = new Map<string, ReturnType<typeof setTimeout>>();
+const past: CanvasSnap[] = [];
+const future: CanvasSnap[] = [];
+
+function rememberSnap() {
+  const current = useDemo.getState();
+  past.push({ nodes: current.nodes, edges: current.edges, selectedNodeId: current.selectedNodeId });
+  if (past.length > 50) past.shift();
+  future.length = 0;
+}
+
+function syncTimers(nodes: DemoState["nodes"]) {
+  for (const [id, timer] of timers) {
+    const node = nodes.find((item) => item.id === id);
+    if (node?.job?.status !== "running") {
+      clearTimeout(timer);
+      timers.delete(id);
+    }
+  }
+}
 
 function schedule(nodeId: string) {
   const existing = timers.get(nodeId);
@@ -124,6 +146,7 @@ export const useDemo = create<DemoStore>((set, get) => {
       set({ toast: outcome.message });
       return;
     }
+    rememberSnap();
     set({ ...outcome.state, toast: outcome.message, hydrated: true });
     if (outcome.jobNodeId) schedule(outcome.jobNodeId);
   }
@@ -163,7 +186,31 @@ export const useDemo = create<DemoStore>((set, get) => {
     deleteCanvas: (canvasId) => run(deleteCanvas(get(), canvasId)),
     run,
     add: (kind, position) => run(addNode(get(), kind, position)),
-    move: (id, position) => set(moveNode(get(), id, position)),
+    move: (id, position) => {
+      const current = get();
+      const node = current.nodes.find((item) => item.id === id);
+      if (!node || (node.position.x === position.x && node.position.y === position.y)) return;
+      rememberSnap();
+      set(moveNode(current, id, position));
+    },
+    undo: () => {
+      const snap = past.pop();
+      if (!snap) return;
+      const current = get();
+      future.push({ nodes: current.nodes, edges: current.edges, selectedNodeId: current.selectedNodeId });
+      const restored = restoreCanvasHistory(current, snap);
+      syncTimers(restored.nodes);
+      set({ ...restored, toast: "已撤销" });
+    },
+    redo: () => {
+      const snap = future.pop();
+      if (!snap) return;
+      const current = get();
+      past.push({ nodes: current.nodes, edges: current.edges, selectedNodeId: current.selectedNodeId });
+      const restored = restoreCanvasHistory(current, snap);
+      syncTimers(restored.nodes);
+      set({ ...restored, toast: "已重做" });
+    },
     select: (id) => set(selectNode(get(), id)),
     chooseRole: (role) => {
       const next = setRole(get(), role);
